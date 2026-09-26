@@ -40,7 +40,10 @@ import {
   AGENT_LAUNCH_SESSION_ALREADY_EXISTS_CODE
 } from '../../../../shared/agent-launch-session-already-exists'
 import { executeAgentLaunch } from '../../../agent-launch/agent-launch-executor'
-import { isAgentLaunchNotStarted } from '../../../agent-launch/agent-launch-not-started'
+import {
+  trackTerminalSpawnDispatch,
+  type TerminalSpawnDispatch
+} from '../../../agent-launch/agent-launch-not-started'
 import type { OrcaRuntimeService } from '../../orca-runtime'
 import { defineMethod, type RpcContext } from '../core'
 import { admitAgentLaunchOperation, agentLaunchOperationCallerKey } from './agent-launch-replay'
@@ -143,12 +146,18 @@ function runAgentLaunch(
   intent: AgentLaunchIntent,
   context: RpcContext,
   attachOperationId?: string,
-  operationCallerKey?: string
+  operationCallerKey?: string,
+  terminalSpawn?: TerminalSpawnDispatch
 ): Promise<AgentLaunchResult> {
   return executeAgentLaunch({
     runtime: context.runtime,
     intent,
-    surfaces: agentLaunchSurfaceFactory(context, attachOperationId, operationCallerKey),
+    surfaces: agentLaunchSurfaceFactory(
+      context,
+      attachOperationId,
+      operationCallerKey,
+      terminalSpawn
+    ),
     workspaces: agentLaunchWorkspaceFactory(context, intent.agent)
   })
 }
@@ -210,7 +219,8 @@ function agentLaunchFailureCode(error: unknown): string {
  */
 function launchFailureWithoutEffectsCode(
   error: unknown,
-  targetKind: AgentLaunchTarget['kind']
+  targetKind: AgentLaunchTarget['kind'],
+  terminalSpawn: TerminalSpawnDispatch
 ): string | null {
   if (error instanceof WorktreeCreateCollisionError) {
     return WORKTREE_CREATE_COLLISION_CODE
@@ -221,7 +231,7 @@ function launchFailureWithoutEffectsCode(
   if (error instanceof AgentLaunchSessionAlreadyExistsError && targetKind === 'existing') {
     return AGENT_LAUNCH_SESSION_ALREADY_EXISTS_CODE
   }
-  if (isAgentLaunchNotStarted(error) && targetKind === 'existing') {
+  if (terminalSpawn.failedBeforeDispatch(error) && targetKind === 'existing') {
     return agentLaunchFailureCode(error)
   }
   return null
@@ -233,7 +243,11 @@ type ActiveAgentLaunch = {
 }
 
 class AgentLaunchExecutionError extends Error {
-  constructor(cause: unknown) {
+  constructor(
+    cause: unknown,
+    /** Decided once, by the launch that ran; a later reader cannot re-derive it from the error. */
+    readonly failedWithoutEffects: boolean
+  ) {
     super('agent_session_operation_unknown', { cause })
   }
 }
@@ -272,15 +286,26 @@ async function executeReplaySafeAgentLaunch(
     await settleQuietly(admission.fail(agentLaunchFailureCode(error)))
     throw error
   }
+  const terminalSpawn = trackTerminalSpawnDispatch()
   let result: AgentLaunchResult
   try {
-    result = await runAgentLaunch(intent, context, admission.attachOperationId, admission.callerKey)
+    result = await runAgentLaunch(
+      intent,
+      context,
+      admission.attachOperationId,
+      admission.callerKey,
+      terminalSpawn
+    )
   } catch (error) {
-    const failedWithoutEffects = launchFailureWithoutEffectsCode(error, intent.target.kind)
+    const failedWithoutEffects = launchFailureWithoutEffectsCode(
+      error,
+      intent.target.kind,
+      terminalSpawn
+    )
     if (failedWithoutEffects) {
       await settleQuietly(admission.fail(failedWithoutEffects))
     }
-    throw new AgentLaunchExecutionError(error)
+    throw new AgentLaunchExecutionError(error, failedWithoutEffects !== null)
   }
   // Settlement is bookkeeping; failure leaves the truthful `unknown` refusal for later retries.
   await settleQuietly(admission.settle(result))
@@ -331,7 +356,7 @@ export const AGENT_LAUNCH_METHODS = [
               code: WORKTREE_CREATE_COLLISION_CODE
             })
           }
-          if (launchFailureWithoutEffectsCode(error.cause, params.target.kind)) {
+          if (error.failedWithoutEffects) {
             throw error.cause
           }
           throw new Error('agent_session_operation_unknown', { cause: error.cause })
