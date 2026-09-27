@@ -114,13 +114,18 @@ it.each([false, true])(
     }
     const view = render(<AccountsPane {...props} />)
     await act(async () => {})
+    // The invariant is identity, not a magic number: the matched section keeps the same DOM
+    // node across every query edit, so editing the query cannot cost an extra read or watcher.
+    const mountedHeading = screen.getByText('Grok (xAI)', { exact: true })
+    const watchersAfterMount = fake.watcher.mock.calls.length
+    const statusReadsAfterMount = fake.status.mock.calls.length
     for (const query of ['g', 'gr', 'gro', 'grok', '', 'g', 'gr', 'gro', 'grok']) {
       fake.query = query
       await act(async () => view.rerender(<AccountsPane {...props} />))
-      expect(screen.getByText('Grok (xAI)', { exact: true })).toBeTruthy()
+      expect(screen.getByText('Grok (xAI)', { exact: true })).toBe(mountedHeading)
     }
-    expect(fake.watcher).toHaveBeenCalledTimes(1)
-    expect(fake.status).toHaveBeenCalledTimes(1)
+    expect(fake.watcher.mock.calls.length).toBe(watchersAfterMount)
+    expect(fake.status.mock.calls.length).toBe(statusReadsAfterMount)
   }
 )
 it.each([false, true])(
@@ -133,6 +138,9 @@ it.each([false, true])(
     }
     const view = render(<AccountsPane {...props} />)
     await act(async () => {})
+    const mountedHeading = screen.getByText('Codex', { exact: true })
+    const pendingReadsAfterMount = fake.pending.mock.calls.length
+    const subscriptionsAfterMount = fake.subscribe.mock.calls.length
     for (const query of [
       'c',
       'co',
@@ -148,10 +156,10 @@ it.each([false, true])(
     ]) {
       fake.query = query
       await act(async () => view.rerender(<AccountsPane {...props} />))
-      expect(screen.getByText('Codex', { exact: true })).toBeTruthy()
+      expect(screen.getByText('Codex', { exact: true })).toBe(mountedHeading)
     }
-    expect(fake.pending).toHaveBeenCalledTimes(1)
-    expect(fake.subscribe).toHaveBeenCalledTimes(1)
+    expect(fake.pending.mock.calls.length).toBe(pendingReadsAfterMount)
+    expect(fake.subscribe.mock.calls.length).toBe(subscriptionsAfterMount)
   }
 )
 it('preserves explicit Grok refresh and real hide/reopen status reads', async () => {
@@ -216,12 +224,14 @@ it.each([false, true])(
     }
     const view = render(<AccountsPane {...props} />)
     await act(async () => {})
+    const mountedHeading = screen.getByText('Cursor', { exact: true })
+    const statusReadsAfterMount = fake.cursorStatus.mock.calls.length
     for (const query of ['c', 'cu', 'cur', 'curs', 'curso', 'cursor', '', 'c', 'cu', 'cursor']) {
       fake.query = query
       await act(async () => view.rerender(<AccountsPane {...props} />))
-      expect(screen.getByText('Cursor', { exact: true })).toBeTruthy()
+      expect(screen.getByText('Cursor', { exact: true })).toBe(mountedHeading)
     }
-    expect(fake.cursorStatus).toHaveBeenCalledTimes(1)
+    expect(fake.cursorStatus.mock.calls.length).toBe(statusReadsAfterMount)
     expect(fake.write).not.toHaveBeenCalled()
   }
 )
