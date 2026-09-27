@@ -21,9 +21,7 @@ const { mockPtySpawn, mockPtyInstance, mockCreateShellPromptReadinessProbe } = v
   }
 }))
 
-vi.mock('node-pty', () => ({
-  spawn: mockPtySpawn
-}))
+vi.mock('./relay-pty-runtime', () => ({ bunRelayPtyModule: { spawn: mockPtySpawn } }))
 
 vi.mock('../main/pty/posix-pty-process-groups', () => ({
   forceKillPosixPtyProcessGroups: vi.fn((_pid: number, fallback: () => void) => fallback())
@@ -118,7 +116,7 @@ describe('PtyHandler', () => {
       expect(pause).toHaveBeenCalledTimes(1)
       await vi.advanceTimersByTimeAsync(300)
 
-      expect(writeCallbacks.length).toBeGreaterThan(50)
+      expect(writeCallbacks.length).toBeGreaterThan(20)
       expect(resume).not.toHaveBeenCalled()
       for (const settle of writeCallbacks.splice(0)) {
         settle()
@@ -520,7 +518,7 @@ describe('PtyHandler', () => {
     })
     await dispatcher.callRequest('pty.spawn', {})
 
-    const first = '界'.repeat(16_380)
+    const first = '界'.repeat(65_532)
     const second = `${'界'.repeat(10)}tail`
     dataCallback!(first)
     dataCallback!(second)
@@ -651,7 +649,7 @@ describe('PtyHandler', () => {
     })
 
     await dispatcher.callRequest('pty.spawn', {})
-    const firstChunk = 'x'.repeat(16 * 1024)
+    const firstChunk = 'x'.repeat(64 * 1024)
     dataCallback!(`${firstChunk}tail`)
 
     vi.advanceTimersByTime(8)
