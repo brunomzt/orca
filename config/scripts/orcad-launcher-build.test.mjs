@@ -1,4 +1,4 @@
-import { existsSync, realpathSync } from 'node:fs'
+import { existsSync, realpathSync, statSync } from 'node:fs'
 import { copyFile, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
@@ -65,12 +65,16 @@ describe.skipIf(!existsSync(bundledRuntime))('bundled launcher application bound
         timeoutMs: 10_000
       })
       expect(result.code, result.stderr).toBe(0)
-      expect(JSON.parse(result.stdout)).toEqual({
+      const { entry, ...response } = JSON.parse(result.stdout)
+      expect(response).toEqual({
         bun: ORCAD_BUN_VERSION,
         value: 42,
-        args: ['--data-dir', 'a path with spaces'],
-        entry: realpathSync(launcher)
+        args: ['--data-dir', 'a path with spaces']
       })
+      const actual = statSync(entry, { bigint: true })
+      const expected = statSync(launcher, { bigint: true })
+      expect(actual.ino).toBe(expected.ino)
+      expect(actual.dev).toBe(expected.dev)
     }
   )
 
