@@ -178,6 +178,7 @@ async function shutdownTrackedPty(
   if (ptyAgentSessionIds.has(id) || operation.immediate) {
     // Typed agents also detach tool process groups; immediate close must snapshot before root exit.
     await killWithDescendantSweep(proc.pid, signalRoot, {
+      preserveSharedCodexServices: true,
       ownsRoot: () => ptyProcesses.get(id) === proc,
       terminateOwnedTree: () => terminatePtyJob(proc)
     })

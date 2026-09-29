@@ -5,6 +5,7 @@ export type ProcessTableRow = {
   /** ps lstart text, kept verbatim. Delayed SIGKILL additionally requires an
    * unambiguous capture-second boundary and matching pgid. */
   startedAt: string
+  command?: string
 }
 
 export function parseProcessTable(psOutput: string): ProcessTableRow[] {
@@ -12,7 +13,9 @@ export function parseProcessTable(psOutput: string): ProcessTableRow[] {
   for (const line of psOutput.split('\n')) {
     // lstart itself contains spaces ("Mon Jul 13 12:54:47 2026"), so only the
     // three leading numeric columns are positional.
-    const match = line.match(/^\s*(\d+)\s+(\d+)\s+(\d+)\s+(.+?)\s*$/)
+    const match = line.match(
+      /^\s*(\d+)\s+(\d+)\s+(\d+)\s+(\S+\s+\S+\s+\d+\s+\d+:\d+:\d+\s+\d+)(?:\s+(.+?))?\s*$/
+    )
     if (!match) {
       continue
     }
@@ -20,7 +23,8 @@ export function parseProcessTable(psOutput: string): ProcessTableRow[] {
       pid: Number(match[1]),
       ppid: Number(match[2]),
       pgid: Number(match[3]),
-      startedAt: match[4]
+      startedAt: match[4],
+      ...(match[5]?.trim() ? { command: match[5].trim() } : {})
     })
   }
   return rows
