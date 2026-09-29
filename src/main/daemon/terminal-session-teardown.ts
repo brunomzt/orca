@@ -120,6 +120,7 @@ export class TerminalSessionTeardown {
   private async forceKillPlainShellSession(sessionId: string, session: Session): Promise<void> {
     session.beginTermination()
     await killWithDescendantSweep(session.pid, () => {}, {
+      preserveSharedCodexServices: true,
       ownsRoot: () => this.sessions.get(sessionId) === session && session.isAlive,
       terminateOwnedTree: () => session.terminateOwnedTree(),
       terminateDescendants: terminateShutdownDescendants,
@@ -171,6 +172,7 @@ export class TerminalSessionTeardown {
             }
           },
           {
+            preserveSharedCodexServices: true,
             // Why: the descendant rows are only authoritative while this exact
             // Session still owns the root PID captured by ps.
             ownsRoot: () => this.sessions.get(sessionId) === session && session.isAlive,

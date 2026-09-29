@@ -69,6 +69,7 @@ export class SessionTerminationController {
             this.signalTerminationRoot()
           },
           {
+            preserveSharedCodexServices: true,
             // Why: if the root exits during ps its PID can be recycled; never apply that stale snapshot to a different process tree.
             ownsRoot: () => !this.deps.isExited(),
             terminateOwnedTree: () => this.deps.subprocess.terminateOwnedTree()

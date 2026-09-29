@@ -6,14 +6,58 @@ import {
   type WindowsTreeKillTarget
 } from './windows-pty-root-identity'
 import { parseProcessTable, type ProcessTableRow } from './pty-process-table-parser'
+import {
+  createProcessTableSnapshotReader,
+  type ProcessTableCapture,
+  type ProcessTableReader
+} from './pty-process-table-reader'
+export {
+  createProcessTableSnapshotReader,
+  type ProcessTableCapture,
+  type ProcessTableReader
+} from './pty-process-table-reader'
+import {
+  sharedCodexBranches,
+  preserveSharedCodexBranch
+} from './codex/codex-shared-service-protection'
 
 export { parseProcessTable, type ProcessTableRow } from './pty-process-table-parser'
 
 export const DESCENDANT_KILL_GRACE_MS = 2_000
+
 export const DESCENDANT_SNAPSHOT_TIMEOUT_MS = 1_000
-// Why: a full process table on a busy host can exceed execFile's 1MB default;
-// truncation would silently drop descendants from the snapshot.
 const PS_MAX_BUFFER_BYTES = 32 * 1024 * 1024
+
+function readFreshProcessTable(
+  timeoutMs = DESCENDANT_SNAPSHOT_TIMEOUT_MS
+): Promise<ProcessTableCapture> {
+  // Why: identity safety must use the boundary before ps starts. Stamping the
+  // result later could make a capture-second PID look safe after a rollover.
+  const capturedAtMs = Date.now()
+  return new Promise((resolve, reject) => {
+    execFile(
+      'ps',
+      ['-axww', '-o', 'pid=,ppid=,pgid=,lstart=,command='],
+      {
+        maxBuffer: PS_MAX_BUFFER_BYTES,
+        timeout: timeoutMs,
+        killSignal: 'SIGKILL',
+        // Why: ps localizes lstart, but delayed identity checks must parse it
+        // identically for every user locale.
+        env: { ...process.env, LANG: 'C', LC_ALL: 'C' }
+      },
+      (error, stdout) => {
+        if (error) {
+          reject(error)
+          return
+        }
+        resolve({ rows: parseProcessTable(stdout), capturedAtMs })
+      }
+    )
+  })
+}
+
+export const readProcessTable = createProcessTableSnapshotReader(readFreshProcessTable)
 
 export type PosixProcessIdentity = Pick<ProcessTableRow, 'pid' | 'startedAt'>
 
@@ -36,79 +80,7 @@ export type DescendantSnapshot = {
   reDerivedPids?: ReadonlySet<number>
 }
 
-export type ProcessTableCapture = {
-  rows: ProcessTableRow[]
-  /** Start boundary of the scan that produced rows, never a later consumer's time. */
-  capturedAtMs: number
-}
-
-export type ProcessTableReader = (timeoutMs?: number) => Promise<ProcessTableCapture>
 export type SignalSender = (pid: number, signal: NodeJS.Signals) => void
-
-function readFreshProcessTable(
-  timeoutMs = DESCENDANT_SNAPSHOT_TIMEOUT_MS
-): Promise<ProcessTableCapture> {
-  // Why: identity safety must use the boundary before ps starts. Stamping the
-  // result later could make a capture-second PID look safe after a rollover.
-  const capturedAtMs = Date.now()
-  return new Promise((resolve, reject) => {
-    execFile(
-      'ps',
-      ['-axo', 'pid=,ppid=,pgid=,lstart='],
-      {
-        maxBuffer: PS_MAX_BUFFER_BYTES,
-        timeout: timeoutMs,
-        killSignal: 'SIGKILL',
-        // Why: ps localizes lstart, but delayed identity checks must parse it
-        // identically for every user locale.
-        env: { ...process.env, LANG: 'C', LC_ALL: 'C' }
-      },
-      (error, stdout) => {
-        if (error) {
-          reject(error)
-          return
-        }
-        resolve({ rows: parseProcessTable(stdout), capturedAtMs })
-      }
-    )
-  })
-}
-
-/** Coalesces same-turn teardown bursts but never serves a completed or already
- * started scan to a later request, because stale PIDs are unsafe to signal. */
-export function createProcessTableSnapshotReader(
-  readFresh: ProcessTableReader
-): ProcessTableReader {
-  let queued: { promise: Promise<ProcessTableCapture>; started: boolean } | null = null
-
-  return (timeoutMs) => {
-    if (queued && !queued.started) {
-      return queued.promise
-    }
-
-    const entry: { promise: Promise<ProcessTableCapture>; started: boolean } = {
-      promise: Promise.resolve(undefined as never),
-      started: false
-    }
-    entry.promise = Promise.resolve().then(() => {
-      // Why: a later caller's deadline starts when it requests a fresh table.
-      // Waiting behind an older scan can consume that entire budget, then run
-      // this subprocess after nobody can use its result.
-      entry.started = true
-      return readFresh(timeoutMs)
-    })
-    queued = entry
-    const clearQueued = (): void => {
-      if (queued === entry) {
-        queued = null
-      }
-    }
-    void entry.promise.then(clearQueued, clearQueued)
-    return entry.promise
-  }
-}
-
-export const readProcessTable = createProcessTableSnapshotReader(readFreshProcessTable)
 
 export function readProcessTableBeforeDeadline(
   readTable: ProcessTableReader,
@@ -140,7 +112,8 @@ export function readProcessTableBeforeDeadline(
 export function collectDescendantRows(
   rootPid: number,
   table: ProcessTableRow[],
-  capturedAtMs = Date.now()
+  capturedAtMs = Date.now(),
+  preserveBranch?: (row: ProcessTableRow) => boolean
 ): DescendantSnapshot {
   const childrenByPpid = new Map<number, ProcessTableRow[]>()
   let rootRow: ProcessTableRow | null = null
@@ -179,6 +152,10 @@ export function collectDescendantRows(
         continue
       }
       visited.add(child.pid)
+      // A shared service owns its children across tabs; never enqueue that branch.
+      if (preserveBranch?.(child)) {
+        continue
+      }
       descendants.push(child)
       queue.push(child.pid)
     }
@@ -196,6 +173,9 @@ type SnapshotDeps = {
   readTable?: ProcessTableReader
   platform?: NodeJS.Platform
   timeoutMs?: number
+  /** Local terminal close only; remote and explicitly owned server teardown stay unchanged. */
+  preserveSharedCodexServices?: boolean
+  readSharedCodexExecutables?: (pids: number[]) => Promise<string>
 }
 
 /**
@@ -221,7 +201,12 @@ export async function captureDescendantSnapshot(
   if (!capture) {
     return null
   }
-  return collectDescendantRows(rootPid, capture.rows, capture.capturedAtMs)
+  const protectedBranches = deps.preserveSharedCodexServices
+    ? await sharedCodexBranches(capture.rows, deps.readSharedCodexExecutables)
+    : new Set<number>()
+  return collectDescendantRows(rootPid, capture.rows, capture.capturedAtMs, (row) =>
+    preserveSharedCodexBranch(row, protectedBranches)
+  )
 }
 
 type KillSweepDeps = SnapshotDeps &

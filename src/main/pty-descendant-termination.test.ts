@@ -193,7 +193,7 @@ describe('captureDescendantSnapshot', () => {
     expect(result).not.toBeNull()
     expect(execFileMock).toHaveBeenCalledWith(
       'ps',
-      ['-axo', 'pid=,ppid=,pgid=,lstart='],
+      ['-axww', '-o', 'pid=,ppid=,pgid=,lstart=,command='],
       expect.objectContaining({
         timeout: 321,
         killSignal: 'SIGKILL',
