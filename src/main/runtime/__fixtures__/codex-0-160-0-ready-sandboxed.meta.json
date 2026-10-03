@@ -1,0 +1,9 @@
+{
+  "capturedAt": "2026-10-03T21:25:11.000Z",
+  "platform": "darwin",
+  "command": ["codex", "-c", "approval_policy=on-request", "-c", "sandbox_mode=workspace-write"],
+  "cols": 120,
+  "rows": 40,
+  "note": "codex-cli 0.160.0 in a fresh non-git scratch directory, workspace-write: no `permissions:` header row, the intro command list instead of the logo, and `⚠ 1 warning` on the hint row. Recorded with Apple-signed /usr/bin/script -q -r driven by a scratch node script (Santa blocks node-pty's spawn-helper here); stty pinned 120x40 inside the pty, ORCA_*/CLAUDE* env scrubbed, xterm-headless answered terminal queries. No bypass flags; never typed into; output stays quiet from ~2.7 s until the cut. <name>.timing.json holds each PTY chunk as [ms since spawn, UTF-16 length] and the prompt-submit time.",
+  "exitCode": null
+}
