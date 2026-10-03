@@ -4,6 +4,7 @@ import { ensureMutationReceiptCapacity } from '../../mutation-receipt-capacity'
 import { CURRENT_CONTRACT_VERSION } from '../contract-constants'
 import { generateId } from '../generated-id'
 import type { OrchestrationDb } from '../orchestration-db'
+import type { PrincipalWriteTarget } from '../principals/principal-row'
 import { insertStartingDispatchContextRow } from '../dispatch-row-writer'
 import { recordedCreatorIdentity, type DispatchCreator } from '../dispatch-depth'
 import { transitionLifecycleWithDb } from '../lifecycle-transition'
@@ -41,6 +42,8 @@ export function createStartingWorkerDispatch(
     /** Who is dispatching, for nesting depth. Required so a new caller must decide. */
     creator: DispatchCreator
     maxDepth: number
+    /** A coordinator principal's write must still own the Run at this generation. */
+    principalFence?: PrincipalWriteTarget
   }
 ): { dispatch: DispatchContextRow; worker: WorkerDispatchRow; task: TaskRow } {
   this.db.exec('BEGIN IMMEDIATE')
@@ -81,7 +84,8 @@ export function createStartingWorkerDispatch(
             createdByPaneKey: params.taskCreatedByPaneKey,
             createdByProcessIncarnation: params.taskCreatedByProcessIncarnation,
             createdByRunGeneration: params.taskCreatedByRunGeneration,
-            runId: params.taskRunId
+            runId: params.taskRunId,
+            principalFence: params.principalFence
           })
         : undefined
     if (!task) {
@@ -89,6 +93,8 @@ export function createStartingWorkerDispatch(
       const taskId = params.taskId ?? ''
       throw taskNotFoundError(`Task ${taskId} was not found.`, { taskId })
     }
+    // Inside this transaction, so the pending receipt rolls back with a closed-intake refusal.
+    this.assertRunAdmission(task.run_id, params.principalFence)
     if (params.retryOf) {
       const prior = this.getDispatchContextById(params.retryOf)
       const priorWorker = this.getWorkerDispatch(params.retryOf)

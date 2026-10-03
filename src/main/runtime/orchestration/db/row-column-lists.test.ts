@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { OrchestrationDb } from './orchestration-db'
 import {
   ATTEMPT_OBSERVATION_FACT_COLUMNS,
+  COORDINATOR_PRINCIPAL_COLUMNS,
   DISPATCH_CONTEXT_COLUMNS,
   RUN_COLUMNS,
   selectColumns,
@@ -27,7 +28,8 @@ describe('row column lists', () => {
     ['runs', RUN_COLUMNS],
     ['tasks', TASK_COLUMNS],
     ['dispatch_contexts', DISPATCH_CONTEXT_COLUMNS],
-    ['attempt_observation_facts', ATTEMPT_OBSERVATION_FACT_COLUMNS]
+    ['attempt_observation_facts', ATTEMPT_OBSERVATION_FACT_COLUMNS],
+    ['coordinator_principals', COORDINATOR_PRINCIPAL_COLUMNS]
   ])('projects every %s column the migrated schema declares', (table, columns) => {
     db = new OrchestrationDb(':memory:')
 

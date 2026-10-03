@@ -47,7 +47,12 @@ const VERSIONED_POST_V6_COLUMNS = [
   { version: 42, table: 'runs', column: 'coordinator_orca_session_id' },
   { version: 42, table: 'runs', column: 'coordinator_orca_session_id_generation' },
   { version: 42, table: 'dispatch_contexts', column: 'assignee_orca_session_id' },
-  { version: 42, table: 'dispatch_contexts', column: 'creator_orca_session_id' }
+  { version: 42, table: 'dispatch_contexts', column: 'creator_orca_session_id' },
+  { version: 43, table: 'runs', column: 'intake_closed' },
+  { version: 43, table: 'runs', column: 'coordinator_principal_id' },
+  // A missing table has no columns, so these also prove each v43 table exists.
+  { version: 43, table: 'coordinator_principals', column: 'retirement_requested_at' },
+  { version: 43, table: 'coordinator_principal_rotations', column: 'previous_capability_hash' }
 ] as const
 
 // Why: v34 shipped without these two, so a v34 stamp proves nothing about them; v35 repairs both

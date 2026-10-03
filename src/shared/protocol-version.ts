@@ -62,6 +62,13 @@ export const ORCHESTRATION_FEDERATION_CONTROL_MAIL_PROTOCOL_VERSION = 2 as const
 export const ORCHESTRATION_FEDERATION_LIFECYCLE_SETTLEMENT_PROTOCOL_VERSION = 3 as const
 export const ORCHESTRATION_CONTRACT_VERSION = 1 as const
 export const ORCHESTRATION_CONTRACT_RUNTIME_CAPABILITY = 'orchestration.contract.v1' as const
+// Defined for the terminal-less coordinator principal; advertised in RUNTIME_CAPABILITIES only once each behavior ships.
+export const ORCHESTRATION_COORDINATOR_PRINCIPAL_RUNTIME_CAPABILITY =
+  'orchestration.coordinator-principal.v1' as const
+export const ORCHESTRATION_INTAKE_CLOSED_RUNTIME_CAPABILITY =
+  'orchestration.intake-closed.v1' as const
+export const ORCHESTRATION_LAUNCH_SPEED_RUNTIME_CAPABILITY =
+  'orchestration.launch-speed.v1' as const
 export const FOLDER_WORKSPACE_PATH_STATUS_RUNTIME_CAPABILITY =
   'folder-workspace.path-status.v1' as const
 export const LINEAR_ISSUE_ATTRIBUTE_FILTER_RUNTIME_CAPABILITY =

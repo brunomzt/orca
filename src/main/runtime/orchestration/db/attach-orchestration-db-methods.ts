@@ -37,6 +37,14 @@ import { attachRoleMailboxDelivery } from './messages/role-mailbox-delivery'
 import { attachStructuredPointerOperationStore } from './messages/structured-pointer-operation-store'
 import { attachMutationReceiptStore } from './mutation-receipts/mutation-receipt-store'
 import { attachLifecycleTransition } from './lifecycle-transition'
+import { attachPrincipalAdmission } from './principals/principal-admission'
+import { attachPrincipalAuthentication } from './principals/principal-authentication'
+import { attachPrincipalCreate } from './principals/principal-create'
+import { attachPrincipalRetirement } from './principals/principal-retirement'
+import { attachPrincipalRetirementBlockers } from './principals/principal-retirement-blockers'
+import { attachPrincipalRotation } from './principals/principal-rotation'
+import { attachPrincipalRow } from './principals/principal-row'
+import { attachPrincipalStore } from './principals/principal-store'
 import { attachQuestionThreads } from './questions/question-threads'
 import { attachOrchestrationReset } from './reset/orchestration-reset'
 import { attachRunBinding } from './runs/run-binding'
@@ -135,5 +143,13 @@ export function attachOrchestrationDbMethods(ctor: { prototype: object }): void 
   attachWorkerReportSettlement(ctor)
   attachDecisionGateStore(ctor)
   attachCoordinatorRunStore(ctor)
+  attachPrincipalAdmission(ctor)
+  attachPrincipalAuthentication(ctor)
+  attachPrincipalCreate(ctor)
+  attachPrincipalRetirement(ctor)
+  attachPrincipalRetirementBlockers(ctor)
+  attachPrincipalRotation(ctor)
+  attachPrincipalRow(ctor)
+  attachPrincipalStore(ctor)
   attachOrchestrationReset(ctor)
 }

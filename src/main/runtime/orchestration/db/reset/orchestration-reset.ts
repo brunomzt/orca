@@ -42,6 +42,8 @@ export function resetAll(this: OrchestrationDb): void {
     DELETE FROM tasks;
     DELETE FROM messages;
     DELETE FROM run_coordinator_handles;
+    DELETE FROM coordinator_principal_rotations;
+    DELETE FROM coordinator_principals;
     DELETE FROM runs;
     INSERT INTO runs (id, objective, home_database, consumer_generation, legacy)
       VALUES ('${LEGACY_RUN_ID}', 'Legacy orchestration state (inspect only)', 'this_database', 0, 1);
