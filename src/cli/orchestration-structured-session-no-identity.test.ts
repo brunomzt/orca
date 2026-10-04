@@ -97,11 +97,35 @@ describe('a structured chat session with no orchestration identity', () => {
     )
   })
 
-  it('leaves an ordinary shell alone, which has no marker and may still guess', async () => {
+  it('refuses an ordinary shell even with one sibling in the same worktree', async () => {
     delete process.env[ORCA_STRUCTURED_SESSION_ENV]
     callMock.mockResolvedValue({ result: { messages: [], count: 0 } })
-    await invoke('orchestration check')
-    expect(getTerminalHandleMock).toHaveBeenCalled()
+    await expect(invoke('orchestration check')).rejects.toMatchObject({
+      code: 'no_active_sender_terminal'
+    })
+    expect(getTerminalHandleMock).not.toHaveBeenCalled()
+    expect(resolveCurrentWorktreeSelectorMock).not.toHaveBeenCalled()
+    expect(callMock).not.toHaveBeenCalled()
+  })
+
+  it.each(['orchestration run-create', 'orchestration run-use'])(
+    'refuses %s before binding a sibling coordinator', async (command) => {
+      delete process.env[ORCA_STRUCTURED_SESSION_ENV]
+      await expect(invoke(command, new Map([['objective', 'test'], ['id', 'run_test']]))).rejects.toMatchObject({
+        code: 'no_active_sender_terminal'
+      })
+      expect(getTerminalHandleMock).not.toHaveBeenCalled()
+      expect(callMock).not.toHaveBeenCalled()
+    }
+  )
+
+  it('refuses remote UI focus as caller identity', async () => {
+    delete process.env[ORCA_STRUCTURED_SESSION_ENV]
+    await expect(ORCHESTRATION_HANDLERS['orchestration check']!({
+      flags: new Map(), client: { call: callMock, isRemote: true }, cwd: '/tmp/repo', json: true
+    } as never)).rejects.toMatchObject({ code: 'no_active_sender_terminal' })
+    expect(getTerminalHandleMock).not.toHaveBeenCalled()
+    expect(callMock).not.toHaveBeenCalled()
   })
 })
 
@@ -189,8 +213,7 @@ describe('an ordinary shell outside any Orca-managed worktree', () => {
         ['body', 'hello']
       ])
     )
-    const sendCall = callMock.mock.calls.find((call) => call[0] === 'orchestration.send')
-    expect((sendCall?.[1] as { from?: string } | undefined)?.from).toBe('term_self')
+    expect(callMock).toHaveBeenCalledWith('orchestration.send', expect.objectContaining({ from: 'term_self' }))
     expect(resolveCurrentWorktreeSelectorMock).not.toHaveBeenCalled()
   })
 

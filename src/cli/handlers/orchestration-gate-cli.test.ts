@@ -30,7 +30,7 @@ vi.mock('../selectors', async (importOriginal) => ({
 
 import { main } from '../index'
 import { RuntimeClientError } from '../runtime/types'
-import { buildWorktree, okFixture, queueFixtures, worktreeListFixture } from '../test-fixtures'
+import { okFixture, queueFixtures } from '../test-fixtures'
 
 const originalTerminalHandle = process.env.ORCA_TERMINAL_HANDLE
 const originalPaneKey = process.env.ORCA_PANE_KEY
@@ -189,9 +189,6 @@ describe('orchestration gate commands carry caller identity', () => {
     getTerminalHandleMock.mockRejectedValue(
       new RuntimeClientError('no_active_terminal', 'no active terminal')
     )
-    // The implicit-sender guess is only attempted inside a managed worktree; put cwd in one so
-    // this test still exercises the "no active terminal" fallback, not the worktree-scope guard.
-    queueFixtures(callMock, worktreeListFixture([buildWorktree('/tmp/repo', 'main')]))
 
     await main(
       ['orchestration', 'gate-create', '--task', 'task_1', '--question', 'ship?'],
