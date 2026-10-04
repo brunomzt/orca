@@ -1,3 +1,4 @@
+import { principalResumeSnapshot } from './principal-resume-snapshot'
 import type { CoordinatorPrincipalRow } from './coordinator-principal-row'
 import {
   ORCHESTRATION_PRINCIPAL_ERROR_CODES as CODES,
@@ -28,6 +29,7 @@ export type PrincipalReplaceReceipt = {
   principal: CoordinatorPrincipalView
   fencedGeneration: number
   replayed: boolean
+  resume?: ReturnType<typeof principalResumeSnapshot>
 }
 
 /** Private journal row; only the store and replay authentication read the hashes. */
@@ -76,13 +78,12 @@ export function committedReplacementReceipt(
       `Replacement request ${request.requestId} was already used with different input.`
     )
   }
-  const committed: { principal: CoordinatorPrincipalView; fencedGeneration: number } = JSON.parse(
-    record.receipt
-  )
+  const committed: Omit<PrincipalReplaceReceipt, 'replayed'> = JSON.parse(record.receipt)
   return {
     principal: committed.principal,
     fencedGeneration: committed.fencedGeneration,
-    replayed: true
+    replayed: true,
+    ...(committed.resume ? { resume: committed.resume } : {})
   }
 }
 
@@ -150,7 +151,11 @@ export function replacePrincipal(
     if (!replaced) {
       throw principalError('runtime_error', `Coordinator principal ${row.id} vanished.`)
     }
-    const receipt = { principal: principalViewOf(this, replaced), fencedGeneration: row.generation }
+    const receipt = {
+      principal: principalViewOf(this, replaced),
+      fencedGeneration: row.generation,
+      resume: principalResumeSnapshot(this, row.run_id)
+    }
     this.db
       .prepare(
         `INSERT INTO coordinator_principal_rotations (

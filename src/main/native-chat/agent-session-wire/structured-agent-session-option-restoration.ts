@@ -29,6 +29,12 @@ export function nativeSessionOptionsFromReport(input: {
 }): Readonly<Record<string, string>> {
   const { reported, priorOptions } = input
   const restored = priorOptions ? { ...priorOptions } : {}
+  if (
+    priorOptions?.orchestrationSpeed === 'standard' &&
+    (reported.fastModeState === 'on' || reported.fastModeState === 'cooldown')
+  ) {
+    restored.orchestrationFastObserved = 'true'
+  }
   delete restored.model
   delete restored.effort
   delete restored.fastMode

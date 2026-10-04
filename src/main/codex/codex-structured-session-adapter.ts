@@ -1,3 +1,5 @@
+import { readCodexLaunchSpeedEvidence } from './codex-launch-speed-evidence'
+import type { LaunchSpeedPhase } from '../../shared/orchestration-launch-speed'
 import * as codexRewind from './codex-structured-rewind'
 import type {
   AgentJournalMessageItem,
@@ -295,6 +297,18 @@ export class CodexStructuredSessionAdapter implements StructuredAgentSessionAdap
       this.deps.requestTimeoutMs
     )
   }
+
+  readLaunchSpeed = (input: {
+    sessionId: string
+    fence: number
+    requestId: string
+    phase: LaunchSpeedPhase
+  }) =>
+    readCodexLaunchSpeedEvidence(
+      this.session(input.sessionId),
+      input,
+      this.deps.readProcessStartTime
+    )
 
   readOptions = (input: { sessionId: string; fence: number }) =>
     readLiveCodexSessionOptions(this.session(input.sessionId), this.deps.requestTimeoutMs)

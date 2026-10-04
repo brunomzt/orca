@@ -1,3 +1,4 @@
+import type { OrchestrationPrincipalAuthority } from '../../../shared/orchestration-principal-contract'
 import type { RunRow } from './types'
 import { isEquivalentPaneKey } from './db/pane-key-match'
 import { currentRunCoordinatorOrcaSessionId } from './db/runs/run-coordinator-orca-session'
@@ -13,6 +14,7 @@ import { formatOrcaSessionAddress, type OrcaSessionId } from '../../../shared/or
  */
 export type OrchestrationCallerIdentity = Readonly<{
   /** Mailbox address the caller sends from and reads: its terminal handle, else its session address. */
+  principal?: OrchestrationPrincipalAuthority
   address: string
   terminalHandle: string | null
   paneKey: string | null
@@ -23,7 +25,7 @@ export type OrchestrationCallerIdentity = Readonly<{
 /** The part of a caller a Run binding stores and matches. */
 export type OrchestrationCoordinatorKey = Pick<
   OrchestrationCallerIdentity,
-  'terminalHandle' | 'paneKey' | 'orcaSessionId'
+  'terminalHandle' | 'paneKey' | 'orcaSessionId' | 'principal'
 >
 
 /** A caller the dispatch entry resolved from the Orca session id in its injected environment. */
@@ -36,9 +38,16 @@ export type OrchestrationSessionCaller = OrchestrationCallerIdentity &
     workspaceId: string
   }>
 
+export type OrchestrationResolvedCaller =
+  | OrchestrationSessionCaller
+  | (OrchestrationCallerIdentity & {
+      workspaceId: string
+      principal: OrchestrationPrincipalAuthority
+    })
+
 /** A caller with neither a pane nor an Orca session id can never be bound to a Run. */
 export function hasRunBindingKey(caller: OrchestrationCoordinatorKey): boolean {
-  return caller.paneKey !== null || caller.orcaSessionId !== null
+  return caller.principal !== undefined || caller.paneKey !== null || caller.orcaSessionId !== null
 }
 
 /** The one address a party reads mail at and is sent mail at; null for a key naming nobody. */

@@ -34,6 +34,9 @@ export type OrchestrationCompatibilityEvidence = {
 }
 
 const SECRET_KEYS = new Set([
+  'orchestrationPrincipal',
+  'capability',
+  'capabilityHash',
   'launchToken',
   'connectionIncarnation',
   'attachmentId',

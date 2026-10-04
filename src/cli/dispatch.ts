@@ -51,6 +51,11 @@ export async function dispatch(commandPath: string[], ctx: HandlerContext): Prom
       `CLI handler group "${group.name}" does not export "${key}"`
     )
   }
+  if (commandPath[0] === 'orchestration') {
+    const { configurePrincipalRouting } =
+      await import('./handlers/orchestration/principal-routing.js')
+    await configurePrincipalRouting(ctx, key)
+  }
   await handler(ctx)
 }
 

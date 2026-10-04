@@ -168,7 +168,7 @@ export const ORCHESTRATION_SEND_METHODS = [
             runtime,
             db,
             addressedDispatchId,
-            params.run
+            sender.principal ? undefined : params.run
           )
           if (runBound) {
             to = runBound.to

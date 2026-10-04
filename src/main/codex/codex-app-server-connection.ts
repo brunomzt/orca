@@ -264,7 +264,11 @@ export async function openCodexAppServerConnection(
     })
   }
 
+  let providerVersion: string | undefined
   const connection: CodexAppServerConnection = {
+    get providerVersion() {
+      return providerVersion
+    },
     get pid() {
       return child.pid
     },
@@ -287,7 +291,7 @@ export async function openCodexAppServerConnection(
       await handlers.onSpawned?.(child.pid)
     }
     handshaking = true
-    await initializeCodexAppServerConnection(connection)
+    providerVersion = await initializeCodexAppServerConnection(connection)
   } catch (error) {
     if ((await close()) !== true) {
       throw new CodexAppServerHandshakeExitUnprovenError(connection, error)

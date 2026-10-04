@@ -1,8 +1,10 @@
+import { ORCHESTRATION_PRINCIPAL_COMMAND_SPECS } from './orchestration-principal-specs'
 import type { CommandSpec } from '../args'
 import { GLOBAL_FLAGS } from '../args'
 import { ORCHESTRATION_WORKER_COMMAND_SPECS } from './orchestration-worker-specs'
 
 export const ORCHESTRATION_COMMAND_SPECS: CommandSpec[] = [
+  ...ORCHESTRATION_PRINCIPAL_COMMAND_SPECS,
   {
     path: ['orchestration', 'run-create'],
     summary: 'Create and bind a lightweight orchestration Run',
@@ -279,3 +281,14 @@ export const ORCHESTRATION_COMMAND_SPECS: CommandSpec[] = [
     allowedFlags: [...GLOBAL_FLAGS, 'all', 'tasks', 'messages', 'retry-request']
   }
 ]
+
+for (const spec of ORCHESTRATION_COMMAND_SPECS) {
+  if (ORCHESTRATION_PRINCIPAL_COMMAND_SPECS.includes(spec)) {
+    continue
+  }
+  spec.allowedFlags.push(
+    ...['principal', 'run', 'capability-file', 'expected-generation'].filter(
+      (flag) => !spec.allowedFlags.includes(flag)
+    )
+  )
+}

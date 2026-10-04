@@ -1,3 +1,5 @@
+import { enforceWorkerLaunchSpeed } from './worker-launch-speed'
+import type { LaunchSpeedPhase } from '../../../../../../shared/orchestration-launch-speed'
 import type { OrcaRuntimeService } from '../../../../orca-runtime'
 import type { OrchestrationDb } from '../../../../orchestration/db'
 import type { RunRow, TaskRow } from '../../../../orchestration/types'
@@ -37,6 +39,8 @@ export async function deliverAndSettleWorkerStartReadiness(args: {
   agent: string | null
   setupReceipt: WorkerSetupReceipt
   launchReceipt: OrchestrationWorkerLaunchReceipt
+  requestedSpeed?: 'standard'
+  speedPhase?: LaunchSpeedPhase
   mode: WorkerStartModeReceipt
   timeoutMs: number
   effects: WorkerEffect[]
@@ -46,6 +50,14 @@ export async function deliverAndSettleWorkerStartReadiness(args: {
 }): Promise<unknown> {
   const { runtime, db, run, task, structuredSession, terminalHandle, effects } = args
 
+  if (args.requestedSpeed) {
+    args.launchReceipt.speed = await enforceWorkerLaunchSpeed({
+      structuredSession,
+      requestId: args.requestId,
+      phase: args.speedPhase ?? 'launch',
+      provider: args.agent
+    })
+  }
   args.onStage('dispatch_input')
   const promptDelivery = await deliverWorkerDispatchPreamble({
     runtime,

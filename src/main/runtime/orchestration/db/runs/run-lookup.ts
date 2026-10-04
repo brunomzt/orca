@@ -139,6 +139,18 @@ export function getCurrentRunForCoordinator(
   this: OrchestrationDb,
   caller: OrchestrationCoordinatorKey
 ): RunRow | undefined {
+  if (caller.principal) {
+    const row = this.getCoordinatorPrincipalRow(caller.principal.principalId)
+    if (
+      !row ||
+      row.lifecycle === 'retired' ||
+      row.generation !== caller.principal.generation ||
+      row.run_id !== caller.principal.runId
+    ) {
+      return undefined
+    }
+    return this.getRun(row.run_id)
+  }
   const run = this.runsBoundToCoordinator(caller)[0]
   return run ? exposeRunTimestamps(run) : undefined
 }

@@ -179,7 +179,17 @@ function turnContext<TValue>(
         .replaceSessionOptions({
           sessionId: request.envelope.sessionId,
           fence,
-          options,
+          options: {
+            ...options,
+            ...(persistedOptions?.orchestrationSpeed === 'standard'
+              ? {
+                  orchestrationSpeed: 'standard',
+                  ...(persistedOptions.orchestrationFastObserved === 'true'
+                    ? { orchestrationFastObserved: 'true' }
+                    : {})
+                }
+              : {})
+          },
           now: request.now()
         })
         .then(() => undefined),

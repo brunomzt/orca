@@ -6,6 +6,16 @@ export async function performSetOption(
   ctx: AgentSessionTurnContext,
   input: { key: string; value: string }
 ): Promise<TurnOutcome<AgentSessionOptionResult>> {
+  if (
+    ctx.persistedOptions?.orchestrationSpeed === 'standard' &&
+    ((input.key === 'fastMode' && input.value !== 'false') ||
+      (input.key === 'serviceTier' && input.value !== 'default'))
+  ) {
+    return {
+      ok: false,
+      refusal: { code: 'agent_session_operation_invalid', message: 'speed_override_conflict' }
+    }
+  }
   let applied: void | Readonly<Record<string, string>>
   try {
     applied = await ctx.adapter.setOption({

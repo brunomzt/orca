@@ -4,6 +4,7 @@ import { isUnknownWorkerStartOutcome, type WorkerSetupReceipt } from './worker-t
 import type { OrchestrationWorkerLaunchReceipt } from './worker-launch-preferences'
 import type { WorkerStartModeReceipt } from '../../orchestration-worker-start-mode'
 import { isStructuredWorkerHandle } from '../../../../structured-worker-identity'
+import { WorkerLaunchSpeedError } from './worker-launch-speed'
 
 export function failWorkerStartWithReceipt(args: {
   db: OrchestrationDb
@@ -17,6 +18,7 @@ export function failWorkerStartWithReceipt(args: {
   mode: WorkerStartModeReceipt
 }): unknown {
   const reason = args.error instanceof Error ? args.error.message : String(args.error)
+  const speedFailure = args.error instanceof WorkerLaunchSpeedError ? args.error : undefined
   const unknown = isUnknownWorkerStartOutcome(args.error, args.failedStage)
   const worker = unknown
     ? args.db.markWorkerStartUnknown(args.dispatchId, args.failedStage, reason)
@@ -39,8 +41,9 @@ export function failWorkerStartWithReceipt(args: {
     stage: worker.stage,
     failedStage: args.failedStage,
     lastError: reason,
+    ...(speedFailure ? { code: speedFailure.code, reasons: speedFailure.reasons } : {}),
     setup: args.setup,
-    launch: args.launch,
+    launch: speedFailure?.speed ? { ...args.launch, speed: speedFailure.speed } : args.launch,
     mode: args.mode,
     effects: JSON.parse(worker.effects) as unknown[],
     residualResources: JSON.parse(worker.residual_resources) as unknown[],

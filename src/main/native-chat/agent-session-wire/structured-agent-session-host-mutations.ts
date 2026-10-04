@@ -1,3 +1,5 @@
+import { launchSpeedAdmission } from '../../../shared/orchestration-launch-speed'
+import type { LaunchSpeedPhase } from '../../../shared/orchestration-launch-speed'
 // Everything a client can ask an ATTACHED session to do: send a turn, cancel one, answer a prompt,
 // change an option, read the options back.
 //
@@ -30,7 +32,8 @@ import {
 } from './structured-agent-session-mutation-admission'
 import {
   prepareStructuredAgentSessionSend,
-  structuredAgentSessionSendBlock
+  structuredAgentSessionSendBlock,
+  structuredAgentSessionSendNeedsOwner
 } from './structured-agent-session-send-preparation'
 import {
   cancelPlan,
@@ -95,18 +98,81 @@ export function sendStructuredAgentSessionTurn(
   }
 ): Promise<AgentSessionMutationResult<AgentSessionSendResult>> {
   const plan = sendPlan(params)
+  let speedPhase: LaunchSpeedPhase = 'reuse'
   return mutate(
     context,
     caller,
     params.envelope,
     {
       ...plan,
-      run: (ctx) => {
-        const blocked = structuredAgentSessionSendBlock(context.deps.store.getRecord(ctx.sessionId))
-        return blocked ? Promise.resolve(blocked) : plan.run(ctx)
+      run: async (ctx) => {
+        await context.flushStreamedEvents(ctx.sessionId)
+        const record = context.deps.store.getRecord(ctx.sessionId)
+        const blocked = structuredAgentSessionSendBlock(record)
+        if (blocked) {
+          return blocked
+        }
+        if (record?.options?.orchestrationFastObserved === 'true') {
+          return {
+            ok: false,
+            refusal: { code: 'agent_session_operation_invalid', message: 'fast_observed' }
+          }
+        }
+        if (record?.options?.orchestrationSpeed === 'standard') {
+          const requestId = params.envelope.clientOperationId
+          const receipt = await context.deps.adapter
+            .readLaunchSpeed?.({
+              sessionId: ctx.sessionId,
+              fence: ctx.fence,
+              requestId,
+              phase: speedPhase
+            })
+            .catch(() => undefined)
+          await context.flushStreamedEvents(ctx.sessionId)
+          const current = context.deps.store.getRecord(ctx.sessionId)
+          const owner = current?.lease.ownerProcess
+          const decision = launchSpeedAdmission(receipt, {
+            provider: current?.provider ?? null,
+            requestId,
+            phase: speedPhase,
+            now: Date.now(),
+            processIncarnation:
+              owner?.processStartTimeMs == null ||
+              current?.lease.claimStatus !== 'live' ||
+              current.lease.runtimeFence !== ctx.fence
+                ? ''
+                : `${owner.pid}:${owner.processStartTimeMs}`
+          })
+          if (current?.options?.orchestrationFastObserved === 'true') {
+            return {
+              ok: false,
+              refusal: { code: 'agent_session_operation_invalid', message: 'fast_observed' }
+            }
+          }
+          if (!decision.admitted) {
+            return {
+              ok: false,
+              refusal: {
+                code: 'agent_session_operation_invalid',
+                message: decision.code ?? 'speed_enforcement_unverified'
+              }
+            }
+          }
+        }
+        return plan.run(ctx)
       }
     },
-    (ledger, record) => prepareStructuredAgentSessionSend(context, params.envelope, ledger, record)
+    (ledger, record) => {
+      if (
+        structuredAgentSessionSendNeedsOwner(
+          context.sessions.get(params.envelope.sessionId),
+          record
+        )
+      ) {
+        speedPhase = 'resume'
+      }
+      return prepareStructuredAgentSessionSend(context, params.envelope, ledger, record)
+    }
   )
 }
 
@@ -281,6 +347,29 @@ export function structuredAgentSessionMutationDelegates(
       caller: StructuredAgentSessionCaller,
       params: Parameters<typeof changeStructuredAgentSessionThreadGoal>[2]
     ) => changeStructuredAgentSessionThreadGoal(context(), caller, params),
+    readLaunchSpeed: (sessionId: string, requestId: string, phase: LaunchSpeedPhase) => {
+      const current = context()
+      return current.serialize(sessionId, async () => {
+        const session = current.requireSession(sessionId)
+        const receipt = await current.deps.adapter.readLaunchSpeed?.({
+          sessionId,
+          fence: session.fence,
+          requestId,
+          phase
+        })
+        await current.flushStreamedEvents(sessionId)
+        if (
+          receipt &&
+          current.deps.store.getRecord(sessionId)?.options?.orchestrationFastObserved === 'true'
+        ) {
+          receipt.enforcement.status = 'fast'
+          receipt.enforcement.reasons = [
+            ...new Set(['fast_observed', ...receipt.enforcement.reasons])
+          ]
+        }
+        return receipt
+      })
+    },
     readOptions: (sessionId: string) => readStructuredAgentSessionOptions(context(), sessionId)
   }
 }

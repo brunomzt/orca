@@ -1,3 +1,8 @@
+import {
+  principalRouteParams,
+  requirePrincipalRuntime,
+  type PrincipalRoute
+} from './principal-route'
 import { randomUUID } from 'node:crypto'
 import type { CliStatusResult, RuntimeStatus } from '../../shared/runtime-types'
 import { runtimeHostConnectionState } from '../../shared/runtime-host-connection-state'
@@ -45,6 +50,12 @@ const LONG_POLL_CLIENT_GRACE_MS = 10_000
 const loadWebSocketTransport = async () => await import('./websocket-transport.js')
 
 export class RuntimeClient {
+  private principalRoute?: PrincipalRoute
+
+  setPrincipalRoute(route: PrincipalRoute): void {
+    this.principalRoute = route
+  }
+
   private readonly userDataPath: string
   private readonly requestTimeoutMs: number
   private readonly remotePairing: PairingOffer | null
@@ -90,6 +101,15 @@ export class RuntimeClient {
       terminalPromptPreflight?: { runtimeId: string | null }
     } & RuntimeOrchestrationEnvelope
   ): Promise<RuntimeRpcSuccess<TResult>> {
+    const principal = method.startsWith('orchestration.') ? this.principalRoute : undefined
+    if (principal) {
+      if (this.isRemote) {
+        throw new RuntimeClientError('principal_host_boundary', 'Principal routing is local only.')
+      }
+      const status = await this.call<RuntimeStatus>('status.get')
+      requirePrincipalRuntime(status.result, status._meta.runtimeId, principal.runtimeId)
+      params = principalRouteParams(params, principal)
+    }
     const effectiveTimeoutMs = options?.timeoutMs ?? this.resolveMethodTimeoutMs(method, params)
     const orchestrationMutation = isOrchestrationMutation(method, params)
     const terminalPromptMutation = isTerminalPromptMutation(method, params)
@@ -134,7 +154,14 @@ export class RuntimeClient {
         ? ORCHESTRATION_CONTRACT_VERSION
         : undefined,
       orchestrationRequestId,
-      ...compatibilityEnvelope
+      orchestrationRuntimeId: principal?.runtimeId ?? options?.orchestrationRuntimeId,
+      ...compatibilityEnvelope,
+      ...(principal
+        ? {
+            orchestrationPrincipal: principal.envelope,
+            orchestrationCompatibilityEvidence: undefined
+          }
+        : {})
     }
     if (this.remotePairing) {
       const transport = await loadWebSocketTransport()
@@ -162,6 +189,13 @@ export class RuntimeClient {
       return response
     }
     const metadata = readMetadata(this.userDataPath)
+    const expectedRuntime = principal?.runtimeId ?? options?.orchestrationRuntimeId
+    if (expectedRuntime && metadata.runtimeId !== expectedRuntime) {
+      throw new RuntimeClientError(
+        'principal_runtime_mismatch',
+        'The runtime changed before the request.'
+      )
+    }
     let response
     try {
       response = await sendRequest<TResult>(metadata, method, params, effectiveTimeoutMs, envelope)
@@ -170,6 +204,15 @@ export class RuntimeClient {
     }
     if (response.ok === false) {
       throw recover(new RuntimeRpcFailureError(response), metadata.runtimeId ?? null)
+    }
+    if (expectedRuntime && response._meta.runtimeId !== expectedRuntime) {
+      throw recover(
+        new RuntimeClientError(
+          'principal_runtime_mismatch',
+          'The runtime changed during the request.'
+        ),
+        expectedRuntime
+      )
     }
     return response
   }

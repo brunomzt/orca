@@ -123,6 +123,16 @@ export class StructuredAgentSessionAdapterRouter implements StructuredAgentSessi
   awaitOptionWritable = (sessionId: string): Promise<void> =>
     this.liveOwnerOrNull(sessionId)?.awaitOptionWritable?.(sessionId) ?? Promise.resolve()
 
+  readLaunchSpeed: NonNullable<StructuredAgentSessionAdapter['readLaunchSpeed']> = async (
+    input
+  ) => {
+    const reader = this.owner(input.sessionId).readLaunchSpeed
+    if (!reader) {
+      throw new Error('speed_control_unsupported')
+    }
+    return reader(input)
+  }
+
   readOptions = (input: { sessionId: string; fence: number }) => {
     const reader = this.owner(input.sessionId).readOptions
     if (!reader) {

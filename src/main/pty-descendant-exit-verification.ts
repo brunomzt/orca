@@ -159,7 +159,8 @@ export async function terminateDescendantSnapshotWithVerdict(
   while (Date.now() < deadline) {
     const capture = await readProcessTableBeforeDeadline(
       readTable,
-      deps.timeoutMs ?? DESCENDANT_SNAPSHOT_TIMEOUT_MS
+      deps.timeoutMs ?? DESCENDANT_SNAPSHOT_TIMEOUT_MS,
+      deps.keepAlive
     )
     // A read that missed its own deadline is not an answer, and surrendering on
     // the first slow one spends none of the window this verification was given:
@@ -227,7 +228,8 @@ export async function terminateDescendantSnapshotWithVerdict(
   }
   const finalCapture = await readProcessTableBeforeDeadline(
     readTable,
-    deps.timeoutMs ?? DESCENDANT_SNAPSHOT_TIMEOUT_MS
+    deps.timeoutMs ?? DESCENDANT_SNAPSHOT_TIMEOUT_MS,
+    deps.keepAlive
   )
   if (!finalCapture) {
     return 'unverifiable'

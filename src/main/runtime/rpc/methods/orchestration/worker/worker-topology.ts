@@ -99,6 +99,7 @@ export async function createStructuredWorkerSessionForWorktree(args: {
   dispatchId: string
   /** `--model`/`--effort`; the session seeds them exactly as a saved selection is seeded. */
   launchPreferences?: AgentLaunchPreferences
+  requestedSpeed?: 'standard'
   effects: WorkerEffect[]
 }): Promise<Awaited<ReturnType<typeof createStructuredWorkerSession>>> {
   if (args.agent !== 'claude' && args.agent !== 'codex') {
@@ -107,7 +108,10 @@ export async function createStructuredWorkerSessionForWorktree(args: {
       `Structured workers support claude and codex; ${args.agent} has no structured session.`
     )
   }
-  const options = narrowStructuredLaunchSeedOptions(args.launchPreferences)
+  const selected = narrowStructuredLaunchSeedOptions(args.launchPreferences)
+  const options = args.requestedSpeed
+    ? { ...selected, fastMode: 'false', orchestrationSpeed: 'standard' }
+    : selected
   const created = await createStructuredWorkerSession({
     runtime: args.runtime,
     worktreeId: args.worktreeId,

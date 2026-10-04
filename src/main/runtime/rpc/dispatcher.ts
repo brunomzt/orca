@@ -1,4 +1,8 @@
 import {
+  resolveOrchestrationPrincipalCaller,
+  needsPrincipalResolution
+} from './orchestration-principal-caller'
+import {
   buildRegistry,
   isStreamingMethod,
   type RpcAnyMethodDeclaration,
@@ -75,12 +79,17 @@ export class RpcDispatcher {
     }
 
     let resolved: ResolvedOrchestrationRequest = { request }
-    if (needsOrchestrationCallerResolution(request)) {
+    if (needsPrincipalResolution(request) || needsOrchestrationCallerResolution(request)) {
       try {
-        resolved = await resolveOrchestrationSessionCaller(this.runtime, request, options)
+        resolved = needsPrincipalResolution(request)
+          ? resolveOrchestrationPrincipalCaller(this.runtime, request, options)
+          : await resolveOrchestrationSessionCaller(this.runtime, request, options)
       } catch (error) {
         return mapDispatcherError(request, meta, error)
       }
+    }
+    if (resolved.principalReplay !== undefined) {
+      return successResponse(request.id, meta, resolved.principalReplay)
     }
     const parsedParams = parseRpcRequestParams(resolved.request, method, meta)
     if (parsedParams.error) {
@@ -120,7 +129,8 @@ export class RpcDispatcher {
           updateClientCapabilities: options?.updateClientCapabilities,
           orchestrationCapability: request.orchestrationCapability,
           authenticatedCallerFingerprint: options?.authenticatedCallerFingerprint,
-          orchestrationCaller: resolved.caller
+          orchestrationCaller: resolved.caller,
+          orchestrationPrincipal: resolved.principal
         },
         orchestrationMutations: this.orchestrationMutations,
         legacyOrchestration: this.legacyOrchestration

@@ -112,7 +112,8 @@ export const readProcessTable = createProcessTableSnapshotReader(readFreshProces
 
 export function readProcessTableBeforeDeadline(
   readTable: ProcessTableReader,
-  timeoutMs: number
+  timeoutMs: number,
+  keepAlive = false
 ): Promise<ProcessTableCapture | null> {
   return new Promise((resolve) => {
     let settled = false
@@ -125,7 +126,9 @@ export function readProcessTableBeforeDeadline(
       resolve(capture)
     }
     const timer = setTimeout(() => finish(null), timeoutMs)
-    timer.unref?.()
+    if (!keepAlive) {
+      timer.unref?.()
+    }
     try {
       void readTable(timeoutMs).then(
         (rows) => finish(rows),

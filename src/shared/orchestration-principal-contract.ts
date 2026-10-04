@@ -105,6 +105,8 @@ export const ORCHESTRATION_PRINCIPAL_ERROR_CODES = {
   recovering: 'principal_recovering',
   notRecovering: 'principal_not_recovering',
   identityMismatch: 'principal_identity_mismatch',
+  resourceMismatch: 'principal_resource_mismatch',
+  placementRequired: 'principal_placement_required',
   generationUnknown: 'principal_generation_unknown',
   capabilityInvalid: 'principal_capability_invalid',
   runtimeMismatch: 'principal_runtime_mismatch',

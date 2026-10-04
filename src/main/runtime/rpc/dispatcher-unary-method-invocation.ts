@@ -1,3 +1,4 @@
+import { assertPrincipalGeneration } from './principal-generation-fence'
 import type { OrcaRuntimeService } from '../orca-runtime'
 import type { RpcContext, RpcMethod, RpcRequest } from './core'
 import { routeDispatcherClientHostedBrowserRpc } from './dispatcher-client-browser-routing'
@@ -54,12 +55,18 @@ export async function invokeDispatcherUnaryMethod({
     compatibility.legacyCoordinatorAuthority
   )
   const authenticatedCallerFingerprint =
+    (context.orchestrationPrincipal
+      ? `principal:${context.orchestrationPrincipal.principalId}`
+      : undefined) ??
     context.authenticatedCallerFingerprint ??
     legacyCoordinator?.mutationCallerFingerprint ??
     (needsLocalCallerFingerprint(request, effectiveParams)
       ? orchestrationMutations.getLocalAuthenticatedCallerFingerprint()
       : undefined)
   const invoke = (mutation?: DurableMutationInvocation) => {
+    if (context.orchestrationPrincipal) {
+      assertPrincipalGeneration(runtime.getOrchestrationDb(), context.orchestrationPrincipal)
+    }
     const legacyCoordinatorRunId = legacyCoordinator?.revalidate()
     return method.handler(effectiveParams, {
       ...context,
@@ -83,7 +90,7 @@ export async function invokeDispatcherUnaryMethod({
     effectiveParams,
     invoke,
     legacyCoordinator?.mutationCallerFingerprint ?? authenticatedCallerFingerprint,
-    context.orchestrationCaller?.orcaSessionId
+    context.orchestrationCaller?.orcaSessionId ?? undefined
   )
   recordRuntimeFeatureInteraction(runtime, request.method, result, undefined, request.params)
   return result

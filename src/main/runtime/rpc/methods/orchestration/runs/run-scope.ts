@@ -9,7 +9,7 @@ import type {
 import {
   hasRunBindingKey,
   type OrchestrationCallerIdentity,
-  type OrchestrationSessionCaller
+  type OrchestrationResolvedCaller
 } from '../../../../orchestration/orchestration-caller-identity'
 import { resolveDeclaredCallerParty } from '../../../../orchestration/orchestration-party'
 
@@ -18,7 +18,7 @@ export type RunScopeParams = {
   callerTerminalHandle?: string
   callerPaneKey?: string
   /** Resolved at the dispatch entry; when set it is the caller, whatever the declared handle. */
-  callerSession: OrchestrationSessionCaller | undefined
+  callerSession: OrchestrationResolvedCaller | undefined
   requireCurrentConsumer: boolean
   legacyCoordinatorRunId?: string
   // Why: the caller's declared handle is a user param; this is the attested one to check it against.
@@ -53,7 +53,7 @@ export function orchestrationCallerIdentity(
   caller: {
     handle: string
     paneKey: string | null | undefined
-    session: OrchestrationSessionCaller | undefined
+    session: OrchestrationResolvedCaller | undefined
   }
 ): OrchestrationCallerIdentity {
   if (caller.session) {
@@ -67,7 +67,7 @@ export type OrchestrationCallerParams = {
   callerTerminalHandle: string
   callerEvidence?: OrchestrationCompatibilityEvidence
   callerAuthority?: OrchestrationCompatibilityCallerAuthority
-  callerSession: OrchestrationSessionCaller | undefined
+  callerSession: OrchestrationResolvedCaller | undefined
   /** Preserve legacy callers that treated a missing pane as an ordinary fence. */
   requireStablePane?: boolean
   /**
@@ -119,6 +119,24 @@ export function resolveOrchestrationCaller(
 // Why: task and gate mutations must share one Run-binding rule.
 export function resolveRunScope(runtime: OrcaRuntimeService, params: RunScopeParams): RunRow {
   const db = runtime.getOrchestrationDb()
+  const principal = params.callerSession?.principal
+  if (principal) {
+    const row = db.getCoordinatorPrincipalRow(principal.principalId)
+    if (
+      !row ||
+      row.lifecycle === 'retired' ||
+      row.generation !== principal.generation ||
+      row.run_id !== principal.runId ||
+      (params.runId && params.runId !== principal.runId)
+    ) {
+      throw new OrchestrationError('consumer_fenced', 'Principal no longer owns this Run.')
+    }
+    const run = db.getRun(principal.runId)
+    if (!run) {
+      throw new OrchestrationError('run_not_found', 'Principal Run is missing.')
+    }
+    return run
+  }
   const explicit = params.runId ? db.getRun(params.runId) : undefined
   if (params.runId && (!explicit || explicit.legacy === 1)) {
     throw new OrchestrationError('run_not_found', `Run ${params.runId} was not found.`)
