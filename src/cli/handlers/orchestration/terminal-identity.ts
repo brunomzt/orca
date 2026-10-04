@@ -11,6 +11,9 @@ export async function resolveOrchestrationTerminalHandle(
   flagName: 'from' | 'terminal',
   options: { validateEnvHandle?: boolean } = {}
 ): Promise<string> {
+  if (flags.has('principal')) {
+    return `run:${getOptionalStringFlag(flags, 'run')}`
+  }
   const explicit = getOptionalStringFlag(flags, flagName)
   if (explicit) {
     return explicit

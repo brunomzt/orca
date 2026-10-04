@@ -15,7 +15,9 @@ const RUN_ROW: RunRow = {
   consumer_generation: 3,
   legacy: 0,
   created_at: '2026-09-04T18:53:07Z',
-  updated_at: '2026-09-04T18:53:09Z'
+  updated_at: '2026-09-04T18:53:09Z',
+  intake_closed: 1,
+  coordinator_principal_id: 'cpr_0123456789ab'
 }
 
 describe('exposeRun', () => {
@@ -35,6 +37,8 @@ describe('exposeRun', () => {
     expect(exposed).not.toHaveProperty('coordinator_pane_key')
     expect(exposed).not.toHaveProperty('coordinator_orca_session_id')
     expect(exposed).not.toHaveProperty('coordinator_orca_session_id_generation')
+    expect(exposed).not.toHaveProperty('intake_closed')
+    expect(exposed).not.toHaveProperty('coordinator_principal_id')
   })
 
   it('preserves every published column by value', () => {

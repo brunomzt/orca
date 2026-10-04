@@ -103,6 +103,13 @@ export const HANDLER_GROUPS: readonly HandlerGroup[] = [
   {
     name: 'orchestration',
     keys: [
+      'orchestration principal-create',
+      'orchestration principal-show',
+      'orchestration principal-reconnect',
+      'orchestration principal-recovering',
+      'orchestration principal-replace',
+      'orchestration principal-retire',
+      'orchestration run-intake',
       'orchestration run-create',
       'orchestration run-use',
       'orchestration run-current',

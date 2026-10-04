@@ -9,7 +9,7 @@ import { routeAllMailboxPages } from '../schemas'
 import { resolveRunScope } from '../runs/run-scope'
 import type { CheckParams } from '../schemas'
 import type { z } from 'zod'
-import type { OrchestrationSessionCaller } from '../../../../orchestration/orchestration-caller-identity'
+import type { OrchestrationResolvedCaller } from '../../../../orchestration/orchestration-caller-identity'
 import { checkRunPendingMail } from './check-run-pending-mail'
 
 type CheckParamsInput = z.infer<typeof CheckParams>
@@ -20,7 +20,7 @@ export async function checkRunMailbox(args: {
   db: OrchestrationDb
   handle: string
   paneKey: string | undefined
-  callerSession: OrchestrationSessionCaller | undefined
+  callerSession: OrchestrationResolvedCaller | undefined
   typeFilter: MessageType[] | undefined
   signal: AbortSignal | undefined
   legacyCoordinatorRunId: string | undefined

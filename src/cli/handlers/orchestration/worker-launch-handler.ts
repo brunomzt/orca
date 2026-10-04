@@ -15,6 +15,19 @@ export const ORCHESTRATION_WORKER_LAUNCH_HANDLER: Record<string, CommandHandler>
   'orchestration worker-start': async ({ flags, client, cwd, json }) => {
     const model = getOptionalStringFlag(flags, 'model')
     const effort = getOptionalStringFlag(flags, 'effort')
+    const speed = getOptionalStringFlag(flags, 'speed')
+    if (speed !== undefined) {
+      if (speed !== 'standard') {
+        throw new RuntimeClientError('invalid_argument', '--speed must be standard.')
+      }
+      const status = await client.call<RuntimeStatus>('status.get')
+      if (!status.result.capabilities?.includes('orchestration.launch-speed.v1')) {
+        throw new RuntimeClientError(
+          'incompatible_runtime',
+          'The runtime cannot enforce worker speed.'
+        )
+      }
+    }
     if (model || effort) {
       const status = await client.call<RuntimeStatus>('status.get')
       if (
@@ -62,6 +75,7 @@ export const ORCHESTRATION_WORKER_LAUNCH_HANDLER: Record<string, CommandHandler>
       agent: getOptionalStringFlag(flags, 'agent'),
       model,
       effort,
+      ...(speed ? { speed } : {}),
       terminal: getOptionalStringFlag(flags, 'terminal'),
       retryOf: getOptionalStringFlag(flags, 'retry-of'),
       timeoutMs: getOptionalPositiveIntegerValueFlag(flags, 'timeout-ms'),

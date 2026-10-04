@@ -13,6 +13,7 @@ import {
   claudeInitializationAuthError,
   readClaudeCapabilities,
   readClaudeModels,
+  readClaudeFrameString,
   type ClaudeInitObservation
 } from './claude-structured-init-proof'
 import { restoreClaudeStructuredSessionOptions } from './claude-structured-options'
@@ -119,6 +120,7 @@ export async function readClaudeStartupFacts(input: {
 
 function applyClaudeStartupFacts(session: ClaudeSession, facts: ClaudeStartupFacts): void {
   const { init, initialization, settings, prepared } = facts
+  session.providerVersion = readClaudeFrameString(init.message, 'claude_code_version') ?? undefined
   const effort = readClaudeSettingsEffort(settings)
   const published = claudeStructuredSessionPublicationOptions(prepared)
   // A turn's own init frame may already have reported the running model.

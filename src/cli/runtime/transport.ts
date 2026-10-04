@@ -200,6 +200,8 @@ export async function sendRequest<TResult>(
           method,
           params,
           orchestrationCapability: envelope?.orchestrationCapability,
+          orchestrationPrincipal: envelope?.orchestrationPrincipal,
+          orchestrationRuntimeId: envelope?.orchestrationRuntimeId,
           orchestrationContractVersion: envelope?.orchestrationContractVersion,
           orchestrationRequestId: envelope?.orchestrationRequestId,
           compatibilityInvocationId: envelope?.compatibilityInvocationId,

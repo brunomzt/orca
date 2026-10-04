@@ -1,3 +1,4 @@
+import type { LaunchSpeedReceipt } from '../../../../../../shared/orchestration-launch-speed'
 import type { AgentLaunchPreferences } from '../../../../../../shared/agent-session-host-authority'
 import {
   findCatalogModel,
@@ -18,6 +19,7 @@ export type OrchestrationWorkerLaunchSelection = {
 export type OrchestrationWorkerLaunchReceipt = {
   requested: OrchestrationWorkerLaunchSelection
   effective: OrchestrationWorkerLaunchSelection | null
+  speed?: LaunchSpeedReceipt
 }
 
 export function createWorkerLaunchReceipt(args: {
@@ -30,7 +32,7 @@ export function createWorkerLaunchReceipt(args: {
     model: args.model ?? null,
     effort: args.effort ?? null
   }
-  return { requested: selection, effective: { ...selection } }
+  return { requested: selection, effective: null }
 }
 
 export function createPendingWorkerLaunchReceipt(args: {
@@ -147,12 +149,10 @@ export function assertWorkerLaunchPreferencesRuntimeSupported(args: {
 export function resolveFederatedWorkerLaunchReceipt(
   remote: OrchestrationWorkerLaunchReceipt | undefined,
   requested: OrchestrationWorkerLaunchReceipt,
-  remoteReady: boolean
+  _remoteReady: boolean
 ): OrchestrationWorkerLaunchReceipt {
   if (remote) {
     return remote
   }
-  return remoteReady
-    ? { requested: requested.requested, effective: { ...requested.requested } }
-    : requested
+  return { requested: requested.requested, effective: null }
 }

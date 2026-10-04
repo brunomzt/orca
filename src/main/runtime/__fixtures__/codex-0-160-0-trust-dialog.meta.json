@@ -1,0 +1,9 @@
+{
+  "capturedAt": "2026-10-03T21:25:33.000Z",
+  "platform": "darwin",
+  "command": ["codex", "-c", "approval_policy=on-request", "-c", "sandbox_mode=workspace-write"],
+  "cols": 120,
+  "rows": 40,
+  "note": "codex-cli 0.160.0 in a fresh, untrusted `git init` scratch repo. Recorded with Apple-signed /usr/bin/script -q -r driven by a scratch node script (Santa blocks node-pty's spawn-helper here); stty pinned 120x40 inside the pty, ORCA_*/CLAUDE* env scrubbed, xterm-headless answered terminal queries. No bypass flags; the empty composer paints at ~0.3 s and the `Trust this folder?` dialog replaces it at ~1.45 s, before any status row. Never answered; cut at 15 s with the dialog up. <name>.timing.json holds each PTY chunk as [ms since spawn, UTF-16 length] and the prompt-submit time.",
+  "exitCode": null
+}

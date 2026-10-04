@@ -139,6 +139,7 @@ export type ClaudeDispatchWaiter = {
 }
 
 export type ClaudeSession = {
+  launchFastModeDisabled?: boolean
   connection: ClaudeStreamJsonConnection
   providerSessionId: string
   /** Latest main-chain message seen on the live stream, mid-turn included. */
@@ -159,6 +160,8 @@ export type ClaudeSession = {
    *  precedence: the lowest-ranked answer, unconfirmed until a turn reports it. */
   appliedOptions?: { model?: string; effort?: string }
   fastModeState?: AgentSessionFastModeState
+  providerVersion?: string
+  observedAppliedSpeed?: 'standard' | 'fast'
   fastModeDisabledReason?: string
   fastModePerSessionOptIn?: boolean
   /** `optionMutationSequence` when `reportedOptions.model` was last observed, so a

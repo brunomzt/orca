@@ -1,3 +1,5 @@
+import { readClaudeLaunchSpeedEvidence } from './claude-launch-speed-evidence'
+import type { LaunchSpeedPhase } from '../../shared/orchestration-launch-speed'
 import { compactClaudeSession, observeClaudeCompaction } from './claude-structured-compaction'
 import type {
   AgentSessionAcquisition,
@@ -233,6 +235,17 @@ export class ClaudeStructuredSessionAdapter implements StructuredAgentSessionAda
     claudeStartupSettledWithin(
       this.sessions.get(sessionId),
       this.deps.requestTimeoutMs ?? CLAUDE_DEFAULT_REQUEST_TIMEOUT_MS
+    )
+  readLaunchSpeed = (input: {
+    sessionId: string
+    fence: number
+    requestId: string
+    phase: LaunchSpeedPhase
+  }) =>
+    readClaudeLaunchSpeedEvidence(
+      this.session(input.sessionId),
+      input,
+      this.deps.readProcessStartTime
     )
   readOptions = (input: { sessionId: string; fence: number }) =>
     readClaudeStructuredSessionOptions(this.session(input.sessionId), this.deps.requestTimeoutMs)

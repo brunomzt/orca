@@ -55,6 +55,10 @@ export type RunRow = {
   legacy: number
   created_at: string
   updated_at: string
+  /** 1 refuses new Tasks and Dispatches atomically; only a coordinator principal sets it in v1. */
+  intake_closed: number
+  /** The coordinator principal that owns this Run, kept after retirement so no terminal can bind it. */
+  coordinator_principal_id: string | null
 }
 
 export type DeliveryStatus = 'outstanding' | 'acknowledged' | 'fenced'

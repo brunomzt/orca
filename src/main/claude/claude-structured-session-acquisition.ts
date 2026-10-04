@@ -15,6 +15,7 @@ import { ClaudePromptRegistry } from './claude-structured-prompt-replies'
 import { restoredClaudeStructuredSessionOptions } from './claude-structured-options'
 import { createClaudeSessionJournalTranslator } from './claude-structured-journal-translation'
 import { observeClaudeFastModeFacts } from './claude-structured-session-options'
+import { observeClaudeAppliedSpeed } from './claude-speed-observation'
 import {
   createClaudeInitProof,
   readClaudeStartupFacts,
@@ -103,6 +104,14 @@ export async function acquireClaudeSession({
     if (liveSession) {
       liveSession.leafUuid = observedLeafUuid
       observeClaudeFastModeFacts(liveSession, message)
+      observeClaudeAppliedSpeed(liveSession, message)
+      if (
+        liveSession.fastModeState === 'on' ||
+        liveSession.fastModeState === 'cooldown' ||
+        liveSession.observedAppliedSpeed === 'fast'
+      ) {
+        input.events?.observeFastMode?.()
+      }
       // Recording a turn end is an owner action; a result that trails the child's exit has no owner.
       if (message.type === 'result' && sessions.get(sessionId) === liveSession) {
         persistClaudeTurnResumePoint(sessionId, liveSession, deps)
@@ -159,6 +168,9 @@ export async function acquireClaudeSession({
           cwd: launch.cwd,
           env: {
             ...launch.env,
+            ...(input.options?.orchestrationSpeed === 'standard'
+              ? { CLAUDE_CODE_DISABLE_FAST_MODE: '1' }
+              : {}),
             [CLAUDE_SPAWN_TOKEN_ENV]: input.spawnToken,
             // Compared against what the child would otherwise inherit, so the record's
             // account home still wins over a diverging overlay without a needless pin.
@@ -231,6 +243,7 @@ export async function acquireClaudeSession({
       observedAt: deps.now?.() ?? Date.now()
     })
     const session = publication.session
+    session.launchFastModeDisabled = input.options?.orchestrationSpeed === 'standard'
     liveSession = session
     const catalogAccess = agentModelCatalogSessionAccess(
       deps.modelCatalog,

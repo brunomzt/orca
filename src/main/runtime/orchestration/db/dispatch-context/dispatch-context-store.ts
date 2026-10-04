@@ -7,6 +7,7 @@ import { paneKeyMatchSuffix } from '../pane-key-match'
 import { claimDispatchContextRow } from '../dispatch-row-writer'
 import { recordedCreatorIdentity, type DispatchCreator } from '../dispatch-depth'
 import type { OrchestrationDb } from '../orchestration-db'
+import type { PrincipalWriteTarget } from '../principals/principal-row'
 import { transitionLifecycleWithDb } from '../lifecycle-transition'
 import { taskNotFoundError, taskNotStartableError } from '../../task-dispatch-refusal'
 import { structuredWorkerOrcaSessionIdForIncarnation } from '../../../structured-worker-identity'
@@ -23,6 +24,8 @@ export function createDispatchContext(
     /** Who is dispatching, for nesting depth. Required so a new caller must decide. */
     creator: DispatchCreator
     maxDepth: number
+    /** A coordinator principal's write must still own the Run at this generation. */
+    principalFence?: PrincipalWriteTarget
   }
 ): DispatchContextRow {
   const { taskId, assigneeHandle, assigneePaneKey, launchTokenHash, processIncarnation } = params
@@ -90,6 +93,8 @@ export function createDispatchContext(
         ? taskNotStartableError(this, message, current)
         : taskNotFoundError(message, { taskId })
     }
+    // Why: after the claim, so the savepoint already holds the write lock and a refusal rolls it back.
+    this.assertRunAdmission(task.run_id, params.principalFence)
     transitionLifecycleWithDb(this.db, {
       entity: 'task',
       id: taskId,

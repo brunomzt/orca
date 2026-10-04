@@ -1,4 +1,4 @@
-import type { OrchestrationSessionCaller } from '../../../../orchestration/orchestration-caller-identity'
+import type { OrchestrationResolvedCaller } from '../../../../orchestration/orchestration-caller-identity'
 import { isTuiAgent } from '../../../../../../shared/tui-agent-config'
 import type { RuntimeStatus } from '../../../../../../shared/runtime-types'
 import {
@@ -47,7 +47,7 @@ export async function startFederatedWorker(args: {
     payloadHash: string
   }
   /** The coordinator's resolved session, when it is one; recorded as the Dispatch creator. */
-  callerSession?: OrchestrationSessionCaller
+  callerSession?: OrchestrationResolvedCaller
 }): Promise<unknown> {
   const { params, runtime, db, task, runId, orchestrationMutation } = args
   if (!isWorkerStartTimeoutWithinTimerLimit(params.timeoutMs)) {

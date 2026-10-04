@@ -36,6 +36,14 @@ import type { MessageInsertMethods } from './messages/message-insert'
 import type { RoleMailboxDeliveryMethods } from './messages/role-mailbox-delivery'
 import type { MutationReceiptStoreMethods } from './mutation-receipts/mutation-receipt-store'
 import type { LifecycleTransitionMethods } from './lifecycle-transition'
+import type { PrincipalAdmissionMethods } from './principals/principal-admission'
+import type { PrincipalAuthenticationMethods } from './principals/principal-authentication'
+import type { PrincipalCreateMethods } from './principals/principal-create'
+import type { PrincipalRetirementMethods } from './principals/principal-retirement'
+import type { PrincipalRetirementBlockersMethods } from './principals/principal-retirement-blockers'
+import type { PrincipalRotationMethods } from './principals/principal-rotation'
+import type { PrincipalRowMethods } from './principals/principal-row'
+import type { PrincipalStoreMethods } from './principals/principal-store'
 import type { QuestionThreadsMethods } from './questions/question-threads'
 import type { OrchestrationResetMethods } from './reset/orchestration-reset'
 import type { RunBindingMethods } from './runs/run-binding'
@@ -134,4 +142,12 @@ export type OrchestrationDbMethods = AttemptObservationStoreMethods &
   WorkerReportSettlementMethods &
   DecisionGateStoreMethods &
   CoordinatorRunStoreMethods &
+  PrincipalAdmissionMethods &
+  PrincipalAuthenticationMethods &
+  PrincipalCreateMethods &
+  PrincipalRetirementMethods &
+  PrincipalRetirementBlockersMethods &
+  PrincipalRotationMethods &
+  PrincipalRowMethods &
+  PrincipalStoreMethods &
   OrchestrationResetMethods

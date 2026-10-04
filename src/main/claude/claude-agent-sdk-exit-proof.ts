@@ -314,6 +314,8 @@ export function createClaudeChildTreeReaper(
     const verdictPromise = deps.terminateDescendants
       ? deps.terminateDescendants(snapshot.tree)
       : terminateDescendantSnapshotWithVerdict(snapshot.tree, {
+          // A short-lived caller must finish the proof after its child exits.
+          keepAlive: true,
           requireIdentityBeforeSignal: true
         })
     killRoot()

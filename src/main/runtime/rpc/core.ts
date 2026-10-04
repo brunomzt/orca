@@ -10,7 +10,11 @@ import type {
 } from '../../../shared/mobile-relay-credential-contract'
 import type { RuntimeCapability } from '../../../shared/protocol-version'
 import type { OrchestrationCompatibilityEvidence } from '../../../shared/orchestration-compatibility-evidence'
-import type { OrchestrationSessionCaller } from '../orchestration/orchestration-caller-identity'
+import type { OrchestrationResolvedCaller } from '../orchestration/orchestration-caller-identity'
+import type {
+  OrchestrationPrincipalAuthority,
+  OrchestrationPrincipalEnvelope
+} from '../../../shared/orchestration-principal-contract'
 
 export type PairingRpcContext = {
   getEndpoints(params: PairingGetEndpointsParams): Promise<PairingGetEndpointsResult>
@@ -52,6 +56,9 @@ export type RpcRequest = {
   orchestrationRequestId?: string
   compatibilityInvocationId?: string
   orchestrationCompatibilityEvidence?: OrchestrationCompatibilityEvidence
+  // Coordinator principal authority; the only place its capability secret travels.
+  orchestrationRuntimeId?: string
+  orchestrationPrincipal?: OrchestrationPrincipalEnvelope
 }
 
 export type LegacyCoordinatorAuthorityProof = Readonly<{
@@ -102,7 +109,9 @@ export type RpcContext = {
   // Why: Run-scoped handlers must compare declared handles with request attestation.
   orchestrationCompatibilityEvidence?: OrchestrationCompatibilityEvidence
   // Why: resolved once at the dispatch entry from the caller's Orca session id; the session wins.
-  orchestrationCaller?: OrchestrationSessionCaller
+  orchestrationCaller?: OrchestrationResolvedCaller
+  // Why: set only after the envelope's capability verified; carries no secret, so handlers cannot leak it.
+  orchestrationPrincipal?: OrchestrationPrincipalAuthority
   // Why: only the compatibility authority router can set this trusted scope; user params cannot bypass Run consumer binding.
   legacyCoordinatorRunId?: string
   legacyCoordinatorAuthority?: LegacyCoordinatorAuthorityProof

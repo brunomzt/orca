@@ -66,6 +66,7 @@ export type StructuredAgentSessionRevisionOptions = Omit<
 export type StructuredAgentSessionLifecycleIdentityResolver = StructuredAgentSessionIdentityResolver
 
 export type StructuredAgentSessionEventSink = {
+  observeFastMode?(): void
   appendItem(
     identity: AgentJournalItemIdentity,
     body: AgentJournalItemBody,
@@ -137,6 +138,7 @@ export type StructuredAgentSessionEventSink = {
 }
 
 export type StructuredAgentSessionEventTarget = {
+  observeFastMode?: () => Promise<void>
   journal: AgentSessionJournal
   fence: number
   publish: (activity?: AgentSessionTurnActivity | null) => void
@@ -230,6 +232,16 @@ export function createDeferredStructuredAgentSessionEventSink(
 
   return {
     sink: {
+      observeFastMode: () => {
+        queue.submit(
+          {
+            bytes: 1,
+            coalescingKey: 'orchestration-fast-observed',
+            run: (bound) => bound.observeFastMode?.()
+          },
+          { lifecycle: true }
+        )
+      },
       appendItem: (identity, body, options = {}) => {
         queue.submit(
           {

@@ -14,6 +14,7 @@ export type CodexAppServerConnectionHandlers = {
 }
 
 export type CodexAppServerConnection = {
+  readonly providerVersion?: string
   readonly pid: number | undefined
   readonly closed: boolean
   request: (

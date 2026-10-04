@@ -1,3 +1,4 @@
+import type { OrchestrationPrincipalEnvelope } from './orchestration-principal-contract'
 // Why: runtime clients can be CLI, desktop, or future non-Electron shells.
 // Keeping the envelope contract here avoids making those clients import each
 // other just to validate the shared RPC frame shape.
@@ -76,6 +77,8 @@ export type RuntimeRpcFailure = {
 export type RuntimeRpcResponse<TResult> = RuntimeRpcSuccess<TResult> | RuntimeRpcFailure
 
 export type RuntimeOrchestrationEnvelope = {
+  orchestrationRuntimeId?: string
+  orchestrationPrincipal?: OrchestrationPrincipalEnvelope
   orchestrationCapability?: string
   orchestrationContractVersion?: number
   orchestrationRequestId?: string

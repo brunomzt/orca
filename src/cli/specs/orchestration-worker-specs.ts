@@ -24,6 +24,7 @@ export const ORCHESTRATION_WORKER_COMMAND_SPECS: CommandSpec[] = [
       'agent',
       'model',
       'effort',
+      'speed',
       'terminal',
       'retry-of',
       'timeout-ms',

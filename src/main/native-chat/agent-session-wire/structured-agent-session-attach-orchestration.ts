@@ -175,8 +175,18 @@ async function runAttach(
               deathEvidence: priorDeathEvidence
             })
           }
-          await bindAndDrain(eventSink, attached.journal, fence, (activity) =>
-            context.subscribers.publish(sessionId, attached.journal, activity)
+          await bindAndDrain(
+            eventSink,
+            attached.journal,
+            fence,
+            (activity) => context.subscribers.publish(sessionId, attached.journal, activity),
+            async () => {
+              await context.deps.store.recordOrchestrationFastObservation({
+                sessionId,
+                fence,
+                now: context.now()
+              })
+            }
           )
         } catch (error) {
           await agentSessionJournalCloseRetries.closeOrRetain(attached.journal)
@@ -239,9 +249,10 @@ async function bindAndDrain(
   eventSink: DeferredStructuredAgentSessionEventSink,
   journal: AgentSessionJournal,
   fence: number,
-  publish: (activity?: AgentSessionTurnActivity | null) => void
+  publish: (activity?: AgentSessionTurnActivity | null) => void,
+  observeFastMode: () => Promise<void>
 ): Promise<void> {
-  eventSink.bind({ journal, fence, publish })
+  eventSink.bind({ journal, fence, publish, observeFastMode })
   const barrier = await eventSink.drained()
   if (!barrier.ok) {
     throw barrier.error

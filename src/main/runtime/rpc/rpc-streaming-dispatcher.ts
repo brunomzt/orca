@@ -1,3 +1,8 @@
+import { assertPrincipalGeneration } from './principal-generation-fence'
+import {
+  resolveOrchestrationPrincipalCaller,
+  needsPrincipalResolution
+} from './orchestration-principal-caller'
 import { isStreamingMethod, type RpcEnvelopeMeta, type RpcRegistry, type RpcRequest } from './core'
 
 import { errorResponse, successResponse } from './errors'
@@ -65,13 +70,19 @@ export class RpcStreamingDispatcher {
 
     // Why: before params parse and the unary/streaming split, so both branches see one caller.
     let resolved: ResolvedOrchestrationRequest = { request }
-    if (needsOrchestrationCallerResolution(request)) {
+    if (needsPrincipalResolution(request) || needsOrchestrationCallerResolution(request)) {
       try {
-        resolved = await resolveOrchestrationSessionCaller(runtime, request, options)
+        resolved = needsPrincipalResolution(request)
+          ? resolveOrchestrationPrincipalCaller(runtime, request, options)
+          : await resolveOrchestrationSessionCaller(runtime, request, options)
       } catch (error) {
         reply(JSON.stringify(mapDispatcherError(request, envelopeMeta, error)))
         return
       }
+    }
+    if (resolved.principalReplay !== undefined) {
+      reply(JSON.stringify(successResponse(request.id, envelopeMeta, resolved.principalReplay)))
+      return
     }
     request = resolved.request
     const orchestrationCaller = resolved.caller
@@ -118,11 +129,15 @@ export class RpcStreamingDispatcher {
           compatibility.legacyCoordinatorAuthority
         )
         const authenticatedCallerFingerprint =
+          (resolved.principal ? `principal:${resolved.principal.principalId}` : undefined) ??
           options?.authenticatedCallerFingerprint ??
           (needsLocalCallerFingerprint(request, effectiveParams)
             ? orchestrationMutations.getLocalAuthenticatedCallerFingerprint()
             : undefined)
         const invoke = (mutation?: DurableMutationInvocation) => {
+          if (resolved.principal) {
+            assertPrincipalGeneration(runtime.getOrchestrationDb(), resolved.principal)
+          }
           const legacyCoordinatorRunId = legacyCoordinator?.revalidate()
           return method.handler(effectiveParams, {
             runtime,
@@ -152,7 +167,8 @@ export class RpcStreamingDispatcher {
             orchestrationCompatibilityCallerAuthority:
               compatibility.orchestrationCompatibilityCallerAuthority,
             orchestrationCompatibilityEvidence: request.orchestrationCompatibilityEvidence,
-            orchestrationCaller
+            orchestrationCaller,
+            orchestrationPrincipal: resolved.principal
           })
         }
         const result = await orchestrationMutations.run(
@@ -160,7 +176,7 @@ export class RpcStreamingDispatcher {
           effectiveParams,
           invoke,
           legacyCoordinator?.mutationCallerFingerprint ?? authenticatedCallerFingerprint,
-          orchestrationCaller?.orcaSessionId
+          orchestrationCaller?.orcaSessionId ?? undefined
         )
         recordRuntimeFeatureInteraction(runtime, request.method, result, undefined, request.params)
         reply(JSON.stringify(successResponse(request.id, envelopeMeta, result)))
@@ -195,7 +211,8 @@ export class RpcStreamingDispatcher {
           sendBinary: options?.sendBinary,
           registerBinaryStreamHandler: options?.registerBinaryStreamHandler,
           registerBinaryMessageHandler: options?.registerBinaryMessageHandler,
-          orchestrationCaller
+          orchestrationCaller,
+          orchestrationPrincipal: resolved.principal
         },
         emit
       )

@@ -17,7 +17,10 @@ CREATE TABLE IF NOT EXISTS runs (
   consumer_generation   INTEGER NOT NULL DEFAULT 0,
   legacy                INTEGER NOT NULL DEFAULT 0,
   created_at            TEXT NOT NULL DEFAULT (datetime('now')),
-  updated_at            TEXT NOT NULL DEFAULT (datetime('now'))
+  updated_at            TEXT NOT NULL DEFAULT (datetime('now')),
+  -- v43: closed intake refuses new Tasks and Dispatches; the owning coordinator principal, if any.
+  intake_closed         INTEGER NOT NULL DEFAULT 0,
+  coordinator_principal_id TEXT
 );
 
 CREATE TABLE IF NOT EXISTS messages (

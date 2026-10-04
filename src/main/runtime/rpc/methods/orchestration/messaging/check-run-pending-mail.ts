@@ -5,7 +5,7 @@ import { checkWorkerMailbox } from './check-worker'
 import { currentDispatchAssigneeRun } from './recipient-routing'
 import { callerHoldsDispatchPane, dispatchFenced } from './dispatch-mailbox-fence'
 import { orchestrationCallerIdentity } from '../runs/run-scope'
-import type { OrchestrationSessionCaller } from '../../../../orchestration/orchestration-caller-identity'
+import type { OrchestrationResolvedCaller } from '../../../../orchestration/orchestration-caller-identity'
 import type { CheckParams } from '../schemas'
 import type { z } from 'zod'
 
@@ -16,7 +16,7 @@ export async function checkRunPendingMail(args: {
   run: RunRow
   handle: string
   paneKey: string | undefined
-  callerSession: OrchestrationSessionCaller | undefined
+  callerSession: OrchestrationResolvedCaller | undefined
   typeFilter: MessageType[] | undefined
   signal: AbortSignal | undefined
   revalidateConsumer: () => void

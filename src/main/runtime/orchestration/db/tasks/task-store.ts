@@ -4,6 +4,7 @@ import { buildOrchestrationTaskDisplayMetadata } from '../../../../../shared/orc
 import { generateId } from '../generated-id'
 import type { TaskRuntimeLineageRow } from '../run-list-page'
 import type { OrchestrationDb } from '../orchestration-db'
+import type { PrincipalWriteTarget } from '../principals/principal-row'
 import { transitionLifecycleWithDb } from '../lifecycle-transition'
 import { selectColumns, TASK_COLUMNS } from '../row-column-lists'
 
@@ -22,6 +23,8 @@ export function createTask(
     createdByProcessIncarnation?: string
     createdByRunGeneration?: number
     runId?: string
+    /** A coordinator principal's write must still own the Run at this generation. */
+    principalFence?: PrincipalWriteTarget
   }
 ): TaskRow {
   const runId = task.runId
@@ -29,6 +32,7 @@ export function createTask(
     throw new Error('Run is required')
   }
   this.requireRun(runId)
+  this.assertRunAdmission(runId, task.principalFence)
   if (task.parentId) {
     const parent = this.getTask(task.parentId)
     if (!parent || parent.run_id !== runId) {
@@ -48,13 +52,14 @@ export function createTask(
     taskTitle: task.taskTitle,
     displayName: task.displayName
   })
-  this.db
+  // Why the guard: closing intake must win atomically even if it lands after the precheck.
+  const inserted = this.db
     .prepare(
       `INSERT INTO tasks (
          id, run_id, parent_id, created_by_terminal_handle, created_by_pane_key,
          created_by_process_incarnation, created_by_run_generation,
          task_title, display_name, spec, status, deps
-       ) VALUES (
+       ) SELECT
          ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
          CASE WHEN EXISTS (
            SELECT 1
@@ -65,7 +70,7 @@ export function createTask(
               OR dependency.status <> 'completed'
          ) THEN 'pending' ELSE 'ready' END,
          ?
-       )`
+       WHERE NOT EXISTS (SELECT 1 FROM runs WHERE id = ? AND intake_closed = 1)`
     )
     .run(
       id,
@@ -80,8 +85,13 @@ export function createTask(
       task.spec,
       depsJson,
       runId,
-      depsJson
+      depsJson,
+      runId
     )
+  if (Number(inserted.changes) !== 1) {
+    this.assertRunAdmission(runId)
+    throw new Error(`Task ${id} was not created in run ${runId}`)
+  }
   return this.db.prepare(`SELECT ${TASK_COLUMN_LIST} FROM tasks WHERE id = ?`).get(id) as TaskRow
 }
 

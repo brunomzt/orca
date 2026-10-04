@@ -1,10 +1,16 @@
+import { assertPrincipalGeneration } from '../../../principal-generation-fence'
+import {
+  assertPrincipalLocalWorkspace,
+  assertPrincipalWorkerPlacement
+} from '../../../principal-workspace-boundary'
+import { OrchestrationError } from '../../../../orchestration/orchestration-error'
 import type { OrcaRuntimeService } from '../../../../orca-runtime'
 import { describeTerminalWaitBlockedReason } from '../../../../../../shared/terminal-wait-blocked-reason-legacy-alias'
 import type { OrchestrationDb } from '../../../../orchestration/db'
 import type { RunRow, TaskRow } from '../../../../orchestration/types'
 import type {
   OrchestrationCallerIdentity,
-  OrchestrationSessionCaller
+  OrchestrationResolvedCaller
 } from '../../../../orchestration/orchestration-caller-identity'
 import { resolveDispatchCreator } from '../runs/dispatch-creator'
 import { resolveDispatchCallerWorktreeId } from '../../orchestration-caller-workspace'
@@ -43,7 +49,7 @@ export async function startLocalWorker(args: {
   db: OrchestrationDb
   run: RunRow
   coordinator: OrchestrationCallerIdentity | null
-  callerSession?: OrchestrationSessionCaller
+  callerSession?: OrchestrationResolvedCaller
   existingTask?: TaskRow
   orchestrationMutation?: WorkerStartMutation
   /** Settings-driven; the executing host still gets to refuse below. */
@@ -52,6 +58,18 @@ export async function startLocalWorker(args: {
   const { params, runtime, db, run, coordinator, callerSession, existingTask } = args
   const { orchestrationMutation } = args
   const coordinatorPane = coordinator?.paneKey ?? null
+  const principal = callerSession?.principal
+  if (principal) {
+    assertPrincipalWorkerPlacement(params)
+    if (params.worktree === 'new-top-level' && params.repo) {
+      const repo = await runtime.showRepo(params.repo)
+      assertPrincipalLocalWorkspace({
+        path: repo.path,
+        connectionId: repo.connectionId ?? null,
+        repo
+      })
+    }
+  }
   const requestedWorktree = params.worktree ?? 'current'
   const createsWorktree = requestedWorktree === 'new-child' || requestedWorktree === 'new-top-level'
   const { agent, launch } = prepareLocalWorkerStart({ params, createsWorktree, runtime })
@@ -62,7 +80,9 @@ export async function startLocalWorker(args: {
     callerSession
   )
   const creationWorktree = createsWorktree
-    ? await runtime.showManagedWorktree(`id:${coordinatorWorktreeId}`)
+    ? principal
+      ? await runtime.showManagedTerminalWorkspace(`id:${coordinatorWorktreeId}`)
+      : await runtime.showManagedWorktree(`id:${coordinatorWorktreeId}`)
     : undefined
   if (creationWorktree) {
     await assertOrchestrationWorktreeCreationSupported({
@@ -76,6 +96,17 @@ export async function startLocalWorker(args: {
     : requestedWorktree === 'current'
       ? await runtime.showManagedTerminalWorkspace(`id:${coordinatorWorktreeId}`)
       : await runtime.showManagedTerminalWorkspace(requestedWorktree)
+  if (principal && resolvedWorktree?.id === callerSession?.workspaceId) {
+    throw new OrchestrationError(
+      'principal_placement_required',
+      'Workers cannot run in the coordinator home.'
+    )
+  }
+  if (principal && resolvedWorktree) {
+    assertPrincipalLocalWorkspace(
+      await runtime.showTerminalWorkspaceLaunchScope(`id:${resolvedWorktree.id}`)
+    )
+  }
   if (params.terminal) {
     await assertExplicitWorkerTerminalUsable({
       runtime,
@@ -87,6 +118,13 @@ export async function startLocalWorker(args: {
   }
   let mode = await resolveWorkerStartModeOnHost(runtime, args.mode, resolvedWorktree?.id, agent)
 
+  if (params.speed && mode.mode !== 'structured') {
+    throw new OrchestrationError(
+      'speed_control_unsupported',
+      'The selected terminal mode has no provider speed-evidence channel.',
+      { effectsApplied: false }
+    )
+  }
   const startOptions = {
     worktree: requestedWorktree,
     mode,
@@ -106,6 +144,9 @@ export async function startLocalWorker(args: {
       : 'existing_worktree'
   }
   const started = db.createStartingWorkerDispatch({
+    principalFence: principal
+      ? { ...principal, expectedGeneration: principal.generation }
+      : undefined,
     creator: resolveDispatchCreator(runtime, params.from, callerSession),
     maxDepth: runtime.getNestedWorkerMaxDepth(),
     taskId: existingTask?.id,
@@ -207,6 +248,7 @@ export async function startLocalWorker(args: {
         )
       }
     }
+    assertPrincipalGeneration(db, principal)
     const terminalAuthority = requireWorkerAuthority(runtime, terminalHandle)
     const capability = db.prepareStartingWorkerAuthority({
       dispatchId: started.dispatch.id,
@@ -234,6 +276,8 @@ export async function startLocalWorker(args: {
       agent: agent ?? null,
       setupReceipt,
       launchReceipt: launch.receipt,
+      requestedSpeed: params.speed,
+      speedPhase: params.retryOf ? 'replacement' : params.terminal ? 'reuse' : 'launch',
       mode,
       timeoutMs: params.timeoutMs ?? 60_000,
       effects,

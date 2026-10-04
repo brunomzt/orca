@@ -181,7 +181,11 @@ export const ORCHESTRATION_MESSAGE_METHODS = [
       const creatorAuthority = creatorHandle
         ? runtime.getOrchestrationDispatchAuthority(creatorHandle)
         : null
+      const authority = orchestrationCaller?.principal
       const task = db.createTask({
+        principalFence: authority
+          ? { ...authority, expectedGeneration: authority.generation }
+          : undefined,
         spec: params.spec,
         taskTitle: params.taskTitle,
         displayName: params.displayName,

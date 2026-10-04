@@ -1,0 +1,9 @@
+{
+  "capturedAt": "2026-10-03T21:24:02.000Z",
+  "platform": "darwin",
+  "command": ["codex"],
+  "cols": 120,
+  "rows": 40,
+  "note": "codex-cli 0.160.0, same launch as codex-0-160-0-ready. Recorded with Apple-signed /usr/bin/script -q -r driven by a scratch node script (Santa blocks node-pty's spawn-helper here); stty pinned 120x40 inside the pty, ORCA_*/CLAUDE* env scrubbed, xterm-headless answered terminal queries. No bypass flags; one shell-using turn (`sleep 12`) submitted at 6.4 s from the ready composer; its first tool call is the user's global-instructions bootstrap, scrubbed same-length. Cut at 45 s, idle after the turn. Username spans redacted with --scan --redact. <name>.timing.json holds each PTY chunk as [ms since spawn, UTF-16 length] and the prompt-submit time.",
+  "exitCode": null
+}

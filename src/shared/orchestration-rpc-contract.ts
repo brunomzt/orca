@@ -1,4 +1,5 @@
 import { ORCHESTRATION_CONTRACT_VERSION } from './protocol-version'
+import { ORCHESTRATION_PRINCIPAL_MUTATION_METHODS } from './orchestration-principal-contract'
 
 export type OrchestrationMigrationReason =
   | 'client_contract_missing'
@@ -39,7 +40,8 @@ const ORCHESTRATION_MUTATION_METHODS = new Set([
   'orchestration.federationAck',
   'orchestration.federationImport',
   'orchestration.federationStop',
-  'orchestration.federationRelease'
+  'orchestration.federationRelease',
+  ...ORCHESTRATION_PRINCIPAL_MUTATION_METHODS
 ])
 
 const RETIRED_ORCHESTRATION_METHODS = new Set(['orchestration.run', 'orchestration.runStop'])

@@ -9,6 +9,7 @@ import {
   stopSupersededCodexAcquisition
 } from './codex-structured-acquisition-lifecycle'
 import { CodexBackgroundTaskTracker } from './codex-background-task-tracker'
+import { observeCodexFastMode } from './codex-speed-observation'
 import { CodexSubagentExecutions } from './codex-subagent-executions'
 import { createCodexDispatchEchoes } from './codex-structured-dispatch-echo'
 import { createCodexJournalTranslator } from './codex-structured-journal-translation'
@@ -131,7 +132,10 @@ export async function acquireCodexStructuredSession(input: {
     const connection = await open(
       {
         command: launch.command,
-        args: launch.args,
+        args:
+          acquireInput.options?.orchestrationSpeed === 'standard'
+            ? [...launch.args, '-c', 'features.fast_mode=false', '-c', 'service_tier="default"']
+            : launch.args,
         cwd: launch.cwd,
         env: buildCodexStructuredChildEnvironment(launch, acquireInput.spawnToken, sessionId)
       },
@@ -144,14 +148,23 @@ export async function acquireCodexStructuredSession(input: {
           input.deliver(
             acquisition,
             sessionId,
-            () =>
+            () => {
+              const session = sessions.get(sessionId)
+              if (
+                session?.connection === acquisition.connection &&
+                session &&
+                observeCodexFastMode(session, method, params)
+              ) {
+                acquireInput.events?.observeFastMode?.()
+              }
               notificationRetries.handle(
                 sessionId,
                 method,
                 params,
                 observedAt,
                 dispatchSequenceAtReceipt
-              ),
+              )
+            },
             Buffer.byteLength(JSON.stringify(params ?? null), 'utf8')
           )
         },

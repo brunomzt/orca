@@ -22,6 +22,13 @@ export const ORCHESTRATION_WORKER_START_METHODS = [
       params,
       { runtime, orchestrationMutation, orchestrationCompatibilityEvidence, orchestrationCaller }
     ) => {
+      if (orchestrationCaller?.principal && params.speed !== 'standard') {
+        throw new OrchestrationError(
+          'speed_enforcement_unverified',
+          'Principal workers require explicit standard speed.',
+          { effectsApplied: false }
+        )
+      }
       if (!isWorkerStartTimeoutWithinTimerLimit(params.timeoutMs)) {
         throw new OrchestrationError(
           'invalid_argument',
@@ -54,6 +61,12 @@ export const ORCHESTRATION_WORKER_START_METHODS = [
         params,
         settings: readWorkerStartModeSettings(runtime)
       })
+      if (params.on && (orchestrationCaller?.principal || params.speed)) {
+        throw new OrchestrationError(
+          'principal_host_boundary',
+          'Principal workers require the owning host.'
+        )
+      }
       if (params.on) {
         // A remote worker is always a terminal agent; the mode receipt rides along so the
         // coordinator still learns why its structured default did not apply.

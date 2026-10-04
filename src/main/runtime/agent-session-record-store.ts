@@ -315,6 +315,25 @@ export class AgentSessionRecordStore {
   replaceSessionOptions = (args: AgentSessionOptionsReplacement): Promise<AgentSessionRecord> =>
     this.mutate(args.sessionId, (record) => replaceAgentSessionRecordOptions(record, args))
 
+  recordOrchestrationFastObservation = (args: {
+    sessionId: string
+    fence: number
+    now: number
+  }): Promise<AgentSessionRecord> =>
+    this.mutate(args.sessionId, (record) => {
+      if (
+        record.options?.orchestrationSpeed !== 'standard' ||
+        record.lease.runtimeFence !== args.fence ||
+        record.lease.claimStatus !== 'live'
+      ) {
+        return record
+      }
+      return replaceAgentSessionRecordOptions(record, {
+        ...args,
+        options: { ...record.options, orchestrationFastObserved: 'true' }
+      })
+    })
+
   async retireClaimKey(keyId: string, now: number): Promise<void> {
     await this.transact(() => retireAgentSessionClaimKey(this.state, keyId, now))
   }

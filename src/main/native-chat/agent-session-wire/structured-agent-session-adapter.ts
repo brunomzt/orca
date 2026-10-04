@@ -1,4 +1,8 @@
 import type {
+  LaunchSpeedReceipt,
+  LaunchSpeedPhase
+} from '../../../shared/orchestration-launch-speed'
+import type {
   AgentSessionRewindReason,
   AgentSessionRewindSupport
 } from '../../../shared/agent-session-rewind'
@@ -289,6 +293,12 @@ export type StructuredAgentSessionAdapter = {
   ): Promise<void | Readonly<Record<string, string>>>
   /** Resolves once a live session can take an option write, or after a bound; never rejects. */
   awaitOptionWritable?(sessionId: string): Promise<void>
+  readLaunchSpeed?(input: {
+    sessionId: string
+    fence: number
+    requestId: string
+    phase: LaunchSpeedPhase
+  }): Promise<LaunchSpeedReceipt>
   readOptions?(input: { sessionId: string; fence: number }): Promise<AgentSessionOptionsResult>
   /** Option keys skipped after a provider rejected their persisted restore value. */
   readOptionRestoreFailures?(sessionId: string): readonly string[]

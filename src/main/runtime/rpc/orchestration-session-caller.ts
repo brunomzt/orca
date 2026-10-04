@@ -1,3 +1,4 @@
+import type { OrchestrationPrincipalAuthority } from '../../../shared/orchestration-principal-contract'
 /**
  * Resolves an orchestration caller that names itself by the Orca agent session id in its injected
  * environment. Both dispatchers call this once, before params parse and the unary/streaming split,
@@ -21,7 +22,10 @@ import { isOrcaSessionId, parseOrcaSessionAddress } from '../../../shared/orca-s
 import { ORCHESTRATION_SESSION_CALLER_ERROR_CODES as CODES } from '../../../shared/orchestration-session-caller-codes'
 import { getStructuredAgentSessionHost } from '../../native-chat/agent-session-wire/structured-agent-session-registry'
 import type { OrcaRuntimeService } from '../orca-runtime'
-import type { OrchestrationSessionCaller } from '../orchestration/orchestration-caller-identity'
+import type {
+  OrchestrationSessionCaller,
+  OrchestrationResolvedCaller
+} from '../orchestration/orchestration-caller-identity'
 import { OrchestrationError } from '../orchestration/orchestration-error'
 import { canonicalOrcaSessionId } from '../orchestration/canonical-orca-session-id'
 import type { OrchestrationDb } from '../orchestration/db'
@@ -67,7 +71,9 @@ export type OrchestrationRequestRoute = {
 export type ResolvedOrchestrationRequest = {
   /** The request with its declared caller bound to the session and its evidence reduced to it. */
   request: RpcRequest
-  caller?: OrchestrationSessionCaller
+  caller?: OrchestrationResolvedCaller
+  principal?: OrchestrationPrincipalAuthority
+  principalReplay?: unknown
 }
 
 const NO_EFFECTS = { effectsApplied: false } as const

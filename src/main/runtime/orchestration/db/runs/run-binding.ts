@@ -40,6 +40,13 @@ export function bindRun(
       this.db.exec('ROLLBACK')
       return undefined
     }
+    if (run.coordinator_principal_id !== null) {
+      throw new OrchestrationError(
+        'run_owned_by_principal',
+        `Run ${params.runId} belongs to coordinator principal ${run.coordinator_principal_id}; a terminal or session cannot bind it. No effects were applied.`,
+        { effectsApplied: false }
+      )
+    }
     const sameBinding = runBoundToCoordinator(run, coordinator)
     const adoption = this.getLegacyAdoption()
     const adoptedRun = adoption?.adopted_run_id === params.runId

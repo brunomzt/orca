@@ -29,6 +29,7 @@ import {
   type WorkerSetupReceipt
 } from './worker-topology'
 import { createWorkerWorktree } from './worker-worktree-creation'
+import { WorkerLaunchSpeedError } from './worker-launch-speed'
 
 /** Only what the placement itself reads. The runtime's own worktree accessors are untyped, so
  *  naming the two fields keeps `any` out of this module's unions. */
@@ -148,6 +149,13 @@ async function createWorkerAgentSurface(
   worktreeId: string,
   mode: WorkerStartModeReceipt
 ): Promise<Pick<WorkerAgentPlacement, 'terminalHandle' | 'structuredSession' | 'warning'>> {
+  if (args.params.speed && mode.mode !== 'structured') {
+    throw new WorkerLaunchSpeedError(
+      'speed_control_unsupported',
+      'The selected terminal mode has no provider speed-evidence channel.',
+      ['speed_control_unsupported', 'speed_enforcement_unverified']
+    )
+  }
   args.db.recordWorkerStage({
     dispatchId: args.dispatchId,
     stage: 'terminal_creating',
@@ -160,6 +168,7 @@ async function createWorkerAgentSurface(
       worktreeId,
       agent: args.agent as TuiAgent,
       dispatchId: args.dispatchId,
+      requestedSpeed: args.params.speed,
       ...(args.launchPreferences ? { launchPreferences: args.launchPreferences } : {}),
       effects: args.effects
     })

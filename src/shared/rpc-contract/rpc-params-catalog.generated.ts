@@ -381,6 +381,15 @@ import {
   TaskCreateParams,
   TaskListParams
 } from './orchestration-params'
+import {
+  PrincipalCreateParams,
+  PrincipalIntakeParams,
+  PrincipalReconnectParams,
+  PrincipalRecoveringParams,
+  PrincipalReplaceParams,
+  PrincipalRetireParams,
+  PrincipalTargetParams
+} from './orchestration-principal-params'
 import { RequestShowParams } from './orchestration-runs-mutation-request-show-params'
 import {
   RunCreateParams,
@@ -997,12 +1006,19 @@ export const RPC_PARAMS_BY_METHOD = {
   'orchestration.gateList': GateListParams,
   'orchestration.gateResolve': GateResolveParams,
   'orchestration.inbox': InboxParams,
+  'orchestration.principalCreate': PrincipalCreateParams,
+  'orchestration.principalMarkRecovering': PrincipalRecoveringParams,
+  'orchestration.principalReconnect': PrincipalReconnectParams,
+  'orchestration.principalReplace': PrincipalReplaceParams,
+  'orchestration.principalRetire': PrincipalRetireParams,
+  'orchestration.principalShow': PrincipalTargetParams,
   'orchestration.reply': ReplyParams,
   'orchestration.requestShow': RequestShowParams,
   'orchestration.reset': ResetParams,
   'orchestration.run': RunParams,
   'orchestration.runCreate': RunCreateParams,
   'orchestration.runCurrent': RunCurrentParams,
+  'orchestration.runIntakeSet': PrincipalIntakeParams,
   'orchestration.runList': RunListParams,
   'orchestration.runShow': RunShowParams,
   'orchestration.runStop': RunStopParams,
