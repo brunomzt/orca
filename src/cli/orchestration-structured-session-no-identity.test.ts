@@ -46,8 +46,8 @@ describe('a structured chat session with no orchestration identity', () => {
     // Exactly ONE terminal pane in the worktree: the single-candidate case, where
     // `requireUnambiguous` still resolves and would hand this session a sibling's handle.
     getTerminalHandleMock.mockResolvedValue('term_sibling')
-    // Default: cwd resolves inside a managed worktree, so the worktree-scope guard passes through
-    // to whichever behavior the test under it is actually pinning (guess, or structured refusal).
+    // Even a cwd inside a managed worktree is never consulted as caller identity; tests assert
+    // this mock stays uncalled.
     resolveCurrentWorktreeSelectorMock.mockResolvedValue('id:worktree-1')
   })
 
@@ -109,9 +109,18 @@ describe('a structured chat session with no orchestration identity', () => {
   })
 
   it.each(['orchestration run-create', 'orchestration run-use'])(
-    'refuses %s before binding a sibling coordinator', async (command) => {
+    'refuses %s before binding a sibling coordinator',
+    async (command) => {
       delete process.env[ORCA_STRUCTURED_SESSION_ENV]
-      await expect(invoke(command, new Map([['objective', 'test'], ['id', 'run_test']]))).rejects.toMatchObject({
+      await expect(
+        invoke(
+          command,
+          new Map([
+            ['objective', 'test'],
+            ['id', 'run_test']
+          ])
+        )
+      ).rejects.toMatchObject({
         code: 'no_active_sender_terminal'
       })
       expect(getTerminalHandleMock).not.toHaveBeenCalled()
@@ -121,9 +130,14 @@ describe('a structured chat session with no orchestration identity', () => {
 
   it('refuses remote UI focus as caller identity', async () => {
     delete process.env[ORCA_STRUCTURED_SESSION_ENV]
-    await expect(ORCHESTRATION_HANDLERS['orchestration check']!({
-      flags: new Map(), client: { call: callMock, isRemote: true }, cwd: '/tmp/repo', json: true
-    } as never)).rejects.toMatchObject({ code: 'no_active_sender_terminal' })
+    await expect(
+      ORCHESTRATION_HANDLERS['orchestration check']!({
+        flags: new Map(),
+        client: { call: callMock, isRemote: true },
+        cwd: '/tmp/repo',
+        json: true
+      } as never)
+    ).rejects.toMatchObject({ code: 'no_active_sender_terminal' })
     expect(getTerminalHandleMock).not.toHaveBeenCalled()
     expect(callMock).not.toHaveBeenCalled()
   })
@@ -213,7 +227,10 @@ describe('an ordinary shell outside any Orca-managed worktree', () => {
         ['body', 'hello']
       ])
     )
-    expect(callMock).toHaveBeenCalledWith('orchestration.send', expect.objectContaining({ from: 'term_self' }))
+    expect(callMock).toHaveBeenCalledWith(
+      'orchestration.send',
+      expect.objectContaining({ from: 'term_self' })
+    )
     expect(resolveCurrentWorktreeSelectorMock).not.toHaveBeenCalled()
   })
 
