@@ -1,12 +1,11 @@
 import type { RuntimeClient } from '../../runtime-client'
 import { getOptionalStringFlag } from '../../flags'
 import { RuntimeClientError } from '../../runtime-client'
-import { getTerminalHandle } from '../../selectors'
 import { isStructuredSessionWithoutIdentity } from '../../../shared/structured-session-marker'
 
 export async function resolveOrchestrationTerminalHandle(
   flags: Map<string, string | boolean>,
-  cwd: string,
+  _cwd: string,
   client: RuntimeClient,
   flagName: 'from' | 'terminal',
   options: { validateEnvHandle?: boolean } = {}
@@ -41,10 +40,18 @@ export async function resolveOrchestrationTerminalHandle(
   if (isStructuredSessionWithoutIdentity()) {
     throw structuredSessionRefusal(flagName)
   }
-  if (flagName === 'from') {
-    return await resolveImplicitOrchestrationSender(flags, cwd, client)
-  }
-  return await getTerminalHandle(flags, cwd, client)
+  // Why: cwd, a single candidate and local or remote UI focus identify a workspace or pane,
+  // never the calling process. Even one sibling in the same worktree is the wrong principal.
+  throw missingCallerIdentityRefusal(flagName)
+}
+
+function missingCallerIdentityRefusal(flagName: 'from' | 'terminal'): RuntimeClientError {
+  return new RuntimeClientError(
+    'no_active_sender_terminal',
+    `This process has no proven orchestration caller identity. Worktree scope and UI focus ` +
+      `cannot identify its terminal. Pass --${flagName} with your own terminal's handle, or ` +
+      'run this command inside a live Orca terminal with ORCA_TERMINAL_HANDLE set.'
+  )
 }
 
 /**
@@ -101,10 +108,6 @@ function getClientErrorCode(err: unknown): string | undefined {
 function isStaleTerminalIdentityError(err: unknown): boolean {
   const code = getClientErrorCode(err)
   return code === 'terminal_handle_stale' || code === 'terminal_gone'
-}
-
-function isNoActiveTerminalError(err: unknown): boolean {
-  return getClientErrorCode(err) === 'no_active_terminal'
 }
 
 async function resolveOrchestrationPaneTerminalHandle(
@@ -168,23 +171,6 @@ export async function resolveCoordinatorTerminalHandle(
   return await resolveOrchestrationTerminalHandle(flags, cwd, client, 'from', {
     validateEnvHandle: true
   })
-}
-
-async function resolveImplicitOrchestrationSender(
-  flags: Map<string, string | boolean>,
-  cwd: string,
-  client: RuntimeClient
-): Promise<string> {
-  try {
-    // Unambiguous: naming the sender is an identity claim, so an arbitrary pick would let this
-    // command speak as a sibling worker.
-    return await getTerminalHandle(flags, cwd, client, { requireUnambiguous: true })
-  } catch (err) {
-    if (!isNoActiveTerminalError(err)) {
-      throw err
-    }
-    throwNoActiveSenderTerminal()
-  }
 }
 
 /**

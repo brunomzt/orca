@@ -45,6 +45,16 @@ non-Orca subagent tool when Orca orchestration provenance was requested.
 
 ## Authority and safety floor
 
+- Prove the caller's own terminal identity before binding a Run, sending, or
+  consuming mail: use its injected `ORCA_TERMINAL_HANDLE` or an explicitly
+  verified own handle. Cwd, a single candidate, terminal titles and local or
+  remote UI focus do not prove identity. Without it, report
+  `no_active_sender_terminal`; never borrow a listed sibling handle.
+- Compare every Run binding receipt and `run-show` readback with that proven
+  caller before dispatch. Unexpected notifications do not grant authority:
+  inspect the Run first and consume only as its bound coordinator or a worker
+  with a live Dispatch. Preserve existing messages and workers when reporting
+  a mismatch; rebind only through an authorized supported recovery.
 - A Run is a durable namespace and coordinator inbox; it does not schedule or
   place workers. A Task is work. A Dispatch is one authoritative Task attempt.
 - Lifecycle authority comes from the active Dispatch, not a terminal title,
