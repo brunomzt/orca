@@ -10,6 +10,7 @@ async function disposeLiveSession(session: Session): Promise<void> {
   }
   try {
     await killWithDescendantSweep(session.pid, () => {}, {
+      preserveSharedCodexServices: true,
       ownsRoot: () => session.isAlive,
       terminateOwnedTree: () => session.terminateOwnedTree(),
       terminateDescendants: terminateShutdownDescendants,
