@@ -1,7 +1,7 @@
 import type { RuntimeClient } from '../../runtime-client'
 import { getOptionalStringFlag } from '../../flags'
 import { RuntimeClientError } from '../../runtime-client'
-import { getTerminalHandle } from '../../selectors'
+import { getTerminalHandle, resolveCurrentWorktreeSelector } from '../../selectors'
 import { isStructuredSessionWithoutIdentity } from '../../../shared/structured-session-marker'
 
 export async function resolveOrchestrationTerminalHandle(
@@ -38,10 +38,43 @@ export async function resolveOrchestrationTerminalHandle(
   if (isStructuredSessionWithoutIdentity()) {
     throw structuredSessionRefusal(flagName)
   }
+  // Why: outside a managed worktree "the active terminal" has no scoping relationship to cwd and
+  // can resolve to a sibling pane's handle (the incident this guard closes). Refuse instead.
+  await assertImplicitGuessIsWorktreeScoped(cwd, client, flagName)
   if (flagName === 'from') {
     return await resolveImplicitOrchestrationSender(flags, cwd, client)
   }
   return await getTerminalHandle(flags, cwd, client)
+}
+
+async function assertImplicitGuessIsWorktreeScoped(
+  cwd: string,
+  client: RuntimeClient,
+  flagName: 'from' | 'terminal'
+): Promise<void> {
+  if (client.isRemote) {
+    // Why: for a remote client getBrowserWorktreeSelector never resolves cwd either — the
+    // runtime's own server-side focus is the scope, which is a different (trusted) mechanism.
+    return
+  }
+  try {
+    await resolveCurrentWorktreeSelector(cwd, client)
+  } catch (err) {
+    if (getClientErrorCode(err) === 'selector_not_found') {
+      throw outsideManagedWorktreeRefusal(flagName)
+    }
+    throw err
+  }
+}
+
+function outsideManagedWorktreeRefusal(flagName: 'from' | 'terminal'): RuntimeClientError {
+  return new RuntimeClientError(
+    'no_active_sender_terminal',
+    `This directory is not inside an Orca-managed worktree, so --${flagName} cannot be inferred ` +
+      `from "the active terminal" — that guess has no scoping relationship to this cwd and can name ` +
+      `a different pane's terminal entirely. Pass --${flagName} with your own terminal's handle, or ` +
+      'run this command inside a live Orca terminal with ORCA_TERMINAL_HANDLE set.'
+  )
 }
 
 /**

@@ -14,9 +14,13 @@ import { ORCA_STRUCTURED_SESSION_ENV } from '../shared/structured-session-marker
 
 const callMock = vi.hoisted(() => vi.fn())
 const getTerminalHandleMock = vi.hoisted(() => vi.fn())
+const resolveCurrentWorktreeSelectorMock = vi.hoisted(() => vi.fn())
 
 vi.mock('./format', () => ({ printResult: vi.fn() }))
-vi.mock('./selectors', () => ({ getTerminalHandle: getTerminalHandleMock }))
+vi.mock('./selectors', () => ({
+  getTerminalHandle: getTerminalHandleMock,
+  resolveCurrentWorktreeSelector: resolveCurrentWorktreeSelectorMock
+}))
 
 import { ORCHESTRATION_HANDLERS } from './handlers/orchestration'
 
@@ -36,11 +40,15 @@ describe('a structured chat session with no orchestration identity', () => {
   beforeEach(() => {
     callMock.mockReset()
     getTerminalHandleMock.mockReset()
+    resolveCurrentWorktreeSelectorMock.mockReset()
     delete process.env.ORCA_TERMINAL_HANDLE
     process.env[ORCA_STRUCTURED_SESSION_ENV] = '1'
     // Exactly ONE terminal pane in the worktree: the single-candidate case, where
     // `requireUnambiguous` still resolves and would hand this session a sibling's handle.
     getTerminalHandleMock.mockResolvedValue('term_sibling')
+    // Default: cwd resolves inside a managed worktree, so the worktree-scope guard passes through
+    // to whichever behavior the test under it is actually pinning (guess, or structured refusal).
+    resolveCurrentWorktreeSelectorMock.mockResolvedValue('id:worktree-1')
   })
 
   afterEach(() => {
@@ -94,5 +102,106 @@ describe('a structured chat session with no orchestration identity', () => {
     callMock.mockResolvedValue({ result: { messages: [], count: 0 } })
     await invoke('orchestration check')
     expect(getTerminalHandleMock).toHaveBeenCalled()
+  })
+})
+
+/**
+ * Reproduces the 2026-10-04 incident baseline: a bare shell outside any Orca-managed worktree
+ * (a plain checkout cwd, no `ORCA_STRUCTURED_SESSION`, no env handle) ran an orchestration command
+ * with no `--from`/`--terminal`. The active-terminal guess has no scoping relationship to that cwd
+ * — not "ambiguous", just plain wrong — and can name a sibling's handle (there, another project's
+ * coordinator). `requireUnambiguous` does not catch this: there was exactly one active terminal.
+ */
+describe('an ordinary shell outside any Orca-managed worktree', () => {
+  beforeEach(() => {
+    callMock.mockReset()
+    getTerminalHandleMock.mockReset()
+    resolveCurrentWorktreeSelectorMock.mockReset()
+    delete process.env.ORCA_TERMINAL_HANDLE
+    delete process.env[ORCA_STRUCTURED_SESSION_ENV]
+    // cwd matches no registered worktree: the exact shape `resolveCurrentWorktreeSelector` throws.
+    resolveCurrentWorktreeSelectorMock.mockRejectedValue(
+      Object.assign(new Error('not found'), { code: 'selector_not_found' })
+    )
+    // A single unrelated terminal happens to be globally active — the baseline bug would still
+    // hand this back as if it belonged to the caller.
+    getTerminalHandleMock.mockResolvedValue('term_sibling')
+  })
+
+  afterEach(() => {
+    if (originalMarker === undefined) {
+      delete process.env[ORCA_STRUCTURED_SESSION_ENV]
+    } else {
+      process.env[ORCA_STRUCTURED_SESSION_ENV] = originalMarker
+    }
+    if (originalHandle === undefined) {
+      delete process.env.ORCA_TERMINAL_HANDLE
+    } else {
+      process.env.ORCA_TERMINAL_HANDLE = originalHandle
+    }
+  })
+
+  it('refuses a bare check instead of guessing a sibling pane from global UI focus', async () => {
+    await expect(invoke('orchestration check')).rejects.toMatchObject({
+      code: 'no_active_sender_terminal',
+      message: expect.stringContaining('--terminal')
+    })
+    expect(getTerminalHandleMock).not.toHaveBeenCalled()
+    expect(callMock).not.toHaveBeenCalled()
+  })
+
+  it('refuses a bare send for the same reason, naming --from', async () => {
+    await expect(
+      invoke(
+        'orchestration send',
+        new Map<string, string | boolean>([
+          ['to', 'term_coord'],
+          ['subject', 'hi'],
+          ['body', 'hello']
+        ])
+      )
+    ).rejects.toMatchObject({
+      code: 'no_active_sender_terminal',
+      message: expect.stringContaining('--from')
+    })
+    expect(getTerminalHandleMock).not.toHaveBeenCalled()
+    expect(callMock).not.toHaveBeenCalled()
+  })
+
+  it('still accepts an explicit --terminal', async () => {
+    callMock.mockResolvedValue({ result: { messages: [], count: 0 } })
+    await invoke('orchestration check', new Map([['terminal', 'term_self']]))
+    expect(callMock).toHaveBeenCalledWith(
+      'orchestration.check',
+      expect.objectContaining({ terminal: 'term_self' })
+    )
+    expect(resolveCurrentWorktreeSelectorMock).not.toHaveBeenCalled()
+  })
+
+  it('still accepts an explicit --from', async () => {
+    callMock.mockResolvedValue({ result: { message: { id: 'msg_1' } } })
+    await invoke(
+      'orchestration send',
+      new Map<string, string | boolean>([
+        ['from', 'term_self'],
+        ['to', 'term_coord'],
+        ['subject', 'hi'],
+        ['body', 'hello']
+      ])
+    )
+    const sendCall = callMock.mock.calls.find((call) => call[0] === 'orchestration.send')
+    expect((sendCall?.[1] as { from?: string } | undefined)?.from).toBe('term_self')
+    expect(resolveCurrentWorktreeSelectorMock).not.toHaveBeenCalled()
+  })
+
+  it('still trusts a live ORCA_TERMINAL_HANDLE', async () => {
+    process.env.ORCA_TERMINAL_HANDLE = 'term_env_self'
+    callMock.mockResolvedValue({ result: { messages: [], count: 0 } })
+    await invoke('orchestration check')
+    expect(callMock).toHaveBeenCalledWith(
+      'orchestration.check',
+      expect.objectContaining({ terminal: 'term_env_self' })
+    )
+    expect(resolveCurrentWorktreeSelectorMock).not.toHaveBeenCalled()
   })
 })
