@@ -30,13 +30,15 @@ A handoff is done when the new worktree id and agent handle have been reported a
 
 Do not use `orca orchestration task-create`, `orca orchestration dispatch --inject`, or `orca orchestration check --wait` for full handoffs. `task-create` is also forbidden because it records coordinator-owned tracking state; if a task row is needed, the user asked for supervised orchestration. Deliver the prompt with worktree/terminal commands.
 
-Independent new-worktree handoff:
+New-worktree handoff from the current task:
 
 ```text
-ORCA worktree create --name <task-name> --no-parent --agent codex --prompt "<task brief>" --json
+ORCA worktree create --name <task-name> --parent-worktree active --agent codex --prompt "<task brief>" --json
 ```
 
-Use `--no-parent` and omit `--base-branch` for independent top-level handoffs unless the user explicitly asks for stacked work, "branch from current", or a specific base. Put any current-branch context in the prompt.
+Keep reviews, subtasks and handoffs under the originating workspace, even when ownership transfers or the Git branch starts from the repo default base. Capture the origin before changing directories; pass its exact worktree or folder parent selector instead of `active` after switching directories. Worktree parents must belong to the same repository, project and execution host. For work in another repo, attach to its existing root workspace, record the requesting workspace in the comment, and report this limitation. Omit `--base-branch` to use the target repo default unless the user requests stacked work or another base. Use `--no-parent` only when the user explicitly requests a separate top-level task. Put current-branch context in the prompt.
+
+After creation, verify the returned parent matches the intended parent (the captured origin or the documented target-repo root). If it is missing or incorrect, repair a worktree parent with `ORCA worktree set --worktree id:<repoId>::<newWorktreePath> --parent-worktree id:<parentRepoId>::<parentWorktreePath> --json`, then verify with `worktree show`. Folder parents are supported only during creation; report a folder lineage failure without deleting or recreating the workspace. If the origin cannot be resolved, report the missing parent instead of guessing or silently creating a top-level workspace.
 
 Custom Codex model/effort handoff:
 
@@ -47,7 +49,7 @@ Custom Codex model/effort handoff:
 The create result's `worktree.id` already contains both pieces Orca needs: `<repoId>::<worktreePath>`. Copy that whole value into the next command; do not shorten it to the repo id.
 
 ```text
-ORCA worktree create --name <task-name> --no-parent --json
+ORCA worktree create --name <task-name> --parent-worktree active --json
 ORCA terminal create --worktree id:<repoId>::<newWorktreePath> --title <task-name> --command 'codex --model gpt-6-astra -c model_reasoning_effort="xhigh"' --json
 ORCA terminal wait --terminal <handle> --for tui-idle --timeout-ms 60000 --json
 ORCA terminal send --terminal <handle> --text "<task brief>" --enter --json
@@ -100,10 +102,10 @@ Selectors:
 Lineage rules:
 
 - When creating from inside an Orca-managed worktree or folder context, Orca infers the current parent context when it can.
-- Use `--parent-worktree active` when the child worktree relationship should be explicit.
+- Agent-created reviews, subtasks and handoffs must explicitly use `--parent-worktree active` or the captured origin selector, then verify the recorded parent.
 - Use `--parent-worktree folder:<folderId>` or `--parent-worktree worktree:<repoId>::<worktreePath>` when a folder or worktree parent context should be explicit.
-- Use `--no-parent` only when the new work is independent.
-- `--no-parent` only controls Orca lineage; it does not choose the Git base. For independent top-level work, omit `--base-branch` so Orca uses the repo default base, or explicitly pass the repo default base. Never base it on the current feature branch unless the user asks for stacked work or "branch from current".
+- Use `--no-parent` only when the user explicitly requests a separate top-level task. Transferring ownership does not remove the originating workspace relationship.
+- `--no-parent` only controls Orca lineage; it does not choose the Git base. For child and top-level work, omit `--base-branch` so Orca uses the repo default base, or explicitly pass the repo default base. Never base it on the current feature branch unless the user asks for stacked work or "branch from current".
 - If `--repo` is omitted, Orca infers the repo from the current Orca worktree when possible.
 
 Agent/setup flags:
